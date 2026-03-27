@@ -15,6 +15,9 @@ import * as Joi from 'joi';
 
 import { SessionManagerPlus } from './manager.plus';
 import { BroadcastController } from './broadcast.controller';
+import { BulkController } from './bulk.controller';
+import { WebhookPlusController } from './webhook.plus.controller';
+import { DashboardPlusController } from './dashboard.plus.controller';
 import { ServerPlusController } from './server.plus.controller';
 
 const IMPORTS_MEDIA = [
@@ -45,7 +48,14 @@ const PROVIDERS = [
 
 @Module({
   imports: IMPORTS,
-  controllers: [...CONTROLLERS, BroadcastController, ServerPlusController],
+  controllers: [
+    ...CONTROLLERS,
+    BroadcastController,
+    BulkController,
+    WebhookPlusController,
+    DashboardPlusController,
+    ServerPlusController,
+  ],
   providers: PROVIDERS,
 })
 export class AppModulePlus extends AppModuleCore {}
