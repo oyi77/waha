@@ -17,6 +17,9 @@ import {
 import { ApiOperation, ApiProperty, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { SessionManager } from '../core/abc/manager.abc';
 import { PoliciesGuard } from '../core/auth/policies.guard';
+import { CheckPolicies } from '../core/auth/policies.decorator';
+import { CanServer } from '../core/auth/policies';
+import { Action } from '../core/auth/casl.types';
 import { WAHAValidationPipe } from '../nestjs/pipes/WAHAValidationPipe';
 import { IsOptional, IsString, IsUrl } from 'class-validator';
 import { WAHAEvents } from '../structures/enums.dto';
@@ -54,6 +57,7 @@ export class WebhookPlusController {
   constructor(private manager: SessionManager) {}
 
   @Get('/webhooks')
+  @CheckPolicies(CanServer(Action.Read))
   @ApiOperation({
     summary: 'List all configured webhooks across all sessions',
   })
@@ -77,6 +81,7 @@ export class WebhookPlusController {
 
   @Post('/webhooks/test')
   @HttpCode(200)
+  @CheckPolicies(CanServer(Action.Manage))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Send a test event to a webhook URL',
@@ -116,6 +121,7 @@ export class WebhookPlusController {
   }
 
   @Get('/webhooks/events')
+  @CheckPolicies(CanServer(Action.Read))
   @ApiOperation({
     summary: 'List all available webhook event types',
   })

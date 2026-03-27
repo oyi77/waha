@@ -8,6 +8,9 @@ import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiProperty, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { SessionManager } from '../core/abc/manager.abc';
 import { PoliciesGuard } from '../core/auth/policies.guard';
+import { CheckPolicies } from '../core/auth/policies.decorator';
+import { CanServer } from '../core/auth/policies';
+import { Action } from '../core/auth/casl.types';
 import { WAHASessionStatus } from '../structures/enums.dto';
 import { SessionManagerPlus } from './manager.plus';
 import { VERSION } from '../version';
@@ -66,6 +69,7 @@ export class DashboardPlusController {
   constructor(private manager: SessionManager) {}
 
   @Get('/status')
+  @CheckPolicies(CanServer(Action.Read))
   @ApiOperation({
     summary: 'Full WAHA Plus system status',
     description: 'Returns version, tier, engine, uptime, session counts, and active features.',
@@ -103,6 +107,7 @@ export class DashboardPlusController {
   }
 
   @Get('/sessions')
+  @CheckPolicies(CanServer(Action.Read))
   @ApiOperation({
     summary: 'Enriched session list with QR and pairing links',
   })

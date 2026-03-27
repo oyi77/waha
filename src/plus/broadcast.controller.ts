@@ -9,6 +9,9 @@ import {
 import { ApiOperation, ApiProperty, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { PoliciesGuard } from '@waha/core/auth/policies.guard';
+import { CheckPolicies } from '@waha/core/auth/policies.decorator';
+import { CanSession, FromBody } from '@waha/core/auth/policies';
+import { Action } from '@waha/core/auth/casl.types';
 import { WAHAValidationPipe } from '@waha/nestjs/pipes/WAHAValidationPipe';
 import { IsArray, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
@@ -71,6 +74,7 @@ export class BroadcastController {
 
   @Post('/broadcast/text')
   @HttpCode(200)
+  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Broadcast text to multiple recipients',

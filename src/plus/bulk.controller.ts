@@ -15,6 +15,9 @@ import {
 import { ApiOperation, ApiProperty, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { SessionManager } from '../core/abc/manager.abc';
 import { PoliciesGuard } from '../core/auth/policies.guard';
+import { CheckPolicies } from '../core/auth/policies.decorator';
+import { CanSession, FromBody } from '../core/auth/policies';
+import { Action } from '../core/auth/casl.types';
 import { WAHAValidationPipe } from '../nestjs/pipes/WAHAValidationPipe';
 import {
   IsArray,
@@ -118,6 +121,7 @@ export class BulkController {
 
   @Post('/bulk/send')
   @HttpCode(200)
+  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Send personalized messages to multiple recipients',
@@ -152,6 +156,7 @@ export class BulkController {
 
   @Post('/bulk/check')
   @HttpCode(200)
+  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Check which phone numbers are registered on WhatsApp',
