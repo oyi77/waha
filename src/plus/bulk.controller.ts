@@ -169,8 +169,7 @@ export class BulkController {
 
     for (const phone of phones) {
       try {
-        const chatId = `${phone}@c.us`;
-        const result = await whatsapp.checkNumberStatus({ chatId, session });
+        const result = await whatsapp.checkNumberStatus({ phone, session });
         if (result?.numberExists) {
           onWhatsApp.push(phone);
         } else {
