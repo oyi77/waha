@@ -1,0 +1,59 @@
+version: '3.8'
+
+# WAHA Plus - Multi-Session WhatsApp HTTP API
+# Features: Unlimited sessions, bulk broadcast, session persistence
+#
+# Usage:
+#   docker compose -f docker-compose.plus.yml up -d
+#
+# Environment variables:
+#   WAHA_API_KEY       - API key for authentication (recommended)
+#   WAHA_MAX_SESSIONS  - Max concurrent sessions (0 = unlimited, default)
+#   WHATSAPP_DEFAULT_ENGINE - NOWEB (default), WEBJS, or GOWS
+
+services:
+  waha-plus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: waha-plus:latest
+    container_name: waha-plus
+    ports:
+      - "${WAHA_PORT:-3000}:3000"
+    environment:
+      # Engine: NOWEB (lightweight), WEBJS (full browser), GOWS (Go-based)
+      - WHATSAPP_DEFAULT_ENGINE=${WHATSAPP_DEFAULT_ENGINE:-NOWEB}
+      # Security: set a strong API key
+      - WAHA_API_KEY=${WAHA_API_KEY:-changeme-use-a-strong-key}
+      # Session limits: 0 = unlimited
+      - WAHA_MAX_SESSIONS=${WAHA_MAX_SESSIONS:-0}
+      # Auto-start sessions on container boot (comma-separated names)
+      - WHATSAPP_START_SESSION=${WHATSAPP_START_SESSION:-}
+      # Dashboard
+      - WAHA_DASHBOARD_ENABLED=${WAHA_DASHBOARD_ENABLED:-true}
+      - WAHA_DASHBOARD_USERNAME=${WAHA_DASHBOARD_USERNAME:-admin}
+      - WAHA_DASHBOARD_PASSWORD=${WAHA_DASHBOARD_PASSWORD:-admin}
+      # Logging
+      - WAHA_LOG_LEVEL=${WAHA_LOG_LEVEL:-info}
+      # Webhook (optional global webhook for all sessions)
+      - WHATSAPP_HOOK_URL=${WHATSAPP_HOOK_URL:-}
+      - WHATSAPP_HOOK_EVENTS=${WHATSAPP_HOOK_EVENTS:-message}
+      # Version: force PLUS mode
+      - WAHA_VERSION=PLUS
+    volumes:
+      # Persist WhatsApp sessions & media
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  waha_sessions:
+    driver: local
+  waha_media:
+    driver: local
