@@ -41,6 +41,42 @@ function readConfigFile(): Record<string, string> {
   }
 }
 
+class StorageConfigBody {
+  @ApiProperty({ enum: ['LOCAL', 'S3', 'POSTGRESQL'], required: false })
+  WAHA_MEDIA_STORAGE?: string;
+
+  @ApiProperty({ required: false })
+  WAHA_MEDIA_S3_BUCKET?: string;
+
+  @ApiProperty({ required: false })
+  WAHA_MEDIA_S3_REGION?: string;
+
+  @ApiProperty({ required: false })
+  WAHA_MEDIA_S3_ENDPOINT?: string;
+
+  @ApiProperty({ required: false })
+  WAHA_MEDIA_S3_ACCESS_KEY?: string;
+
+  @ApiProperty({ required: false })
+  WAHA_MEDIA_S3_SECRET_KEY?: string;
+
+  @ApiProperty({ required: false })
+  WAHA_MEDIA_PG_URL?: string;
+}
+
+class AuthConfigBody {
+  @ApiProperty({ required: false })
+  username?: string;
+
+  @ApiProperty({ required: false })
+  password?: string;
+}
+
+class UpstreamSyncBody {
+  @ApiProperty({ required: false, default: false })
+  deploy?: boolean;
+}
+
 class StorageConfigResponse {
   @ApiProperty({ description: 'Currently active env var values' })
   current: Record<string, string>;
@@ -99,15 +135,16 @@ export class ConfigPlusController {
     description:
       'Saves WAHA_MEDIA_* variables to waha-config.json. Changes take effect after restarting WAHA.',
   })
-  saveStorageConfig(@Body() body: Record<string, string>) {
+  saveStorageConfig(@Body() body: StorageConfigBody) {
     const existing = readConfigFile();
+    const bodyRecord = body as unknown as Record<string, string>;
 
     for (const key of ALLOWED_STORAGE_KEYS) {
-      if (body[key] === undefined || body[key] === null) continue;
-      if (body[key] === '') {
+      if (bodyRecord[key] === undefined || bodyRecord[key] === null) continue;
+      if (bodyRecord[key] === '') {
         delete existing[key];
       } else {
-        existing[key] = body[key];
+        existing[key] = bodyRecord[key];
       }
     }
 
@@ -154,7 +191,7 @@ export class ConfigPlusController {
       'Saves WAHA_DASHBOARD_USERNAME and WAHA_DASHBOARD_PASSWORD to waha-config.json. ' +
       'Changes take effect after restarting WAHA.',
   })
-  saveAuthConfig(@Body() body: { username?: string; password?: string }) {
+  saveAuthConfig(@Body() body: AuthConfigBody) {
     const existing = readConfigFile();
 
     if (body.username !== undefined && body.username !== null) {
@@ -193,7 +230,7 @@ export class ConfigPlusController {
       'Requires git and the sync script to be available (works on host; not inside Docker).',
   })
   triggerUpstreamSync(
-    @Body() body: { deploy?: boolean },
+    @Body() body: UpstreamSyncBody,
   ): UpstreamSyncResponse {
     if (!fs.existsSync(SYNC_SCRIPT)) {
       return {

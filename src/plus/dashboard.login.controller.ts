@@ -1,8 +1,16 @@
 import { Body, Controller, Get, Post, Res } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { DashboardConfigServiceCore } from '@waha/core/config/DashboardConfigServiceCore';
 import { makeAuthToken } from '@waha/core/auth/dashboardCookieAuth';
 import { Response } from 'express';
+
+class LoginBody {
+  @ApiProperty({ required: true })
+  username: string;
+
+  @ApiProperty({ required: true })
+  password: string;
+}
 
 @Controller('api/dashboard')
 @ApiTags('🔐 Dashboard Auth')
@@ -15,13 +23,9 @@ export class DashboardLoginController {
     description:
       'Validates username/password and sets waha-auth session cookie. No API key required.',
   })
-  login(
-    @Body() body: { username?: string; password?: string },
-    @Res() res: Response,
-  ) {
+  login(@Body() body: LoginBody, @Res() res: Response) {
     const credentials = this.dashboardConfig.credentials;
     if (!credentials) {
-      // Auth not configured — grant access freely
       return res.json({ success: true, message: 'No auth configured' });
     }
 
@@ -35,7 +39,7 @@ export class DashboardLoginController {
       httpOnly: true,
       sameSite: 'strict',
       path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
     return res.json({ success: true });
   }
