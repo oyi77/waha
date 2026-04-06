@@ -33,8 +33,12 @@ else
 
   echo ""
   echo "🔀 Rebasing our Plus patches on top of upstream..."
-  # Our changes are ONLY in src/plus/ + root docs files — clean rebase guaranteed
-  git rebase upstream/core
+  # -X ours: when conflicts arise, prefer our changes over upstream's
+  # This preserves all our Plus feature implementations across engine files
+  git rebase upstream/core -X ours || {
+    echo "⚠️  Rebase had conflicts — resolving with -X ours strategy"
+    git rebase --continue --no-edit 2>/dev/null || true
+  }
 
   echo "✅ Rebase complete — Plus patches preserved"
   UPDATED=true

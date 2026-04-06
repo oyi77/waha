@@ -1,3 +1,19 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Load waha-config.json overrides before NestJS boots so ConfigModule picks them up
+const _configOverridePath = path.join(process.cwd(), 'waha-config.json');
+if (fs.existsSync(_configOverridePath)) {
+  try {
+    const _overrides: Record<string, string> = JSON.parse(
+      fs.readFileSync(_configOverridePath, 'utf8'),
+    );
+    Object.assign(process.env, _overrides);
+  } catch {
+    // malformed file — ignore
+  }
+}
+
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { WAHA_WEBHOOKS } from '@waha/structures/webhooks';

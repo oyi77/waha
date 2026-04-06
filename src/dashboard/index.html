@@ -652,6 +652,69 @@
       </div>
     </div>
 
+    <!-- Media Storage Config -->
+    <div class="card p-5 mb-4">
+      <div class="section-title mb-1">Media Storage</div>
+      <p class="text-xs mb-4" style="color:#6b7868;">Saved to <code style="color:#86efac;">waha-config.json</code> — restart WAHA to apply changes.</p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">Storage Backend</label>
+          <select id="storageType" class="input-field" onchange="updateStorageFields()">
+            <option value="LOCAL">LOCAL — store on disk (default)</option>
+            <option value="S3">S3 — Amazon S3 or compatible</option>
+            <option value="POSTGRESQL">POSTGRESQL — database BYTEA</option>
+          </select>
+        </div>
+        <div id="s3Fields" class="hidden space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">Bucket</label>
+              <input id="s3Bucket" type="text" class="input-field font-mono" placeholder="my-waha-bucket" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">Region</label>
+              <input id="s3Region" type="text" class="input-field font-mono" placeholder="us-east-1" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">Endpoint (S3-compatible, optional)</label>
+            <input id="s3Endpoint" type="url" class="input-field font-mono" placeholder="https://s3.amazonaws.com" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">Access Key ID</label>
+              <input id="s3AccessKey" type="text" class="input-field font-mono" placeholder="AKIAIOSFODNN7..." />
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">Secret Access Key</label>
+              <input id="s3SecretKey" type="password" class="input-field font-mono" placeholder="••••••••" />
+            </div>
+          </div>
+        </div>
+        <div id="pgFields" class="hidden">
+          <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">PostgreSQL Connection URL</label>
+          <input id="pgUrl" type="text" class="input-field font-mono" placeholder="postgresql://user:pass@host:5432/db" />
+        </div>
+        <div class="flex items-center gap-3 pt-1">
+          <button onclick="saveStorageConfig()" class="btn-primary text-sm px-4 py-2">Save Storage Config</button>
+          <span id="storageSaveMsg" class="text-xs hidden"></span>
+        </div>
+        <div id="storageCurrentConfig" class="text-xs" style="color:#6b7868;"></div>
+      </div>
+    </div>
+
+    <!-- Upstream Sync -->
+    <div class="card p-5 mb-4">
+      <div class="section-title mb-1">Upstream Sync</div>
+      <p class="text-xs mb-4" style="color:#6b7868;">Pull latest commits from <code style="color:#86efac;">devlikeapro/waha</code> and rebase our patches on top. Conflicts are auto-resolved keeping our code.</p>
+      <div class="flex items-center gap-3 mb-3">
+        <button onclick="triggerUpstreamSync(false)" id="syncBtn" class="btn-primary text-sm px-4 py-2">Sync from Upstream</button>
+        <button onclick="triggerUpstreamSync(true)" id="syncDeployBtn" class="px-4 py-2 text-sm font-medium rounded-lg transition-colors" style="background:#1e2d20;color:#a3b8a0;border:1px solid #2d4030;">Sync + Rebuild</button>
+        <span id="syncStatus" class="text-xs" style="color:#6b7868;"></span>
+      </div>
+      <pre id="syncLog" class="hidden text-xs overflow-auto rounded p-3" style="max-height:280px;background:#080c0a;color:#86efac;font-family:'DM Mono',monospace;border:1px solid #1e2d20;white-space:pre-wrap;"></pre>
+    </div>
+
     <!-- Env Vars Reference -->
     <div class="card overflow-hidden">
       <div class="px-4 py-3 border-b" style="border-color:#1e2d20;">
@@ -852,7 +915,7 @@
     status: loadStatus,
     webhooks: loadWebhooks,
     broadcast: loadBroadcast,
-    config: loadConfig,
+    config: () => { loadConfig(); loadStorageConfig(); },
   };
 
   function switchTab(tab) {
@@ -1499,6 +1562,116 @@
 
   function escAttr(s) {
     return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  }
+
+  // ─── Storage Config ───────────────────────────────────────────────────────
+  async function loadStorageConfig() {
+    try {
+      const resp = await apiFetch('/plus/config/storage');
+      if (!resp.ok) return;
+      const data = await resp.json().catch(() => ({}));
+      const cur = data.current || {};
+      const saved = data.saved || {};
+
+      const sel = document.getElementById('storageType');
+      sel.value = cur.WAHA_MEDIA_STORAGE || 'LOCAL';
+      document.getElementById('s3Bucket').value = saved.WAHA_MEDIA_S3_BUCKET || '';
+      document.getElementById('s3Region').value = saved.WAHA_MEDIA_S3_REGION || '';
+      document.getElementById('s3Endpoint').value = saved.WAHA_MEDIA_S3_ENDPOINT || '';
+      document.getElementById('s3AccessKey').value = saved.WAHA_MEDIA_S3_ACCESS_KEY || '';
+      if (saved.WAHA_MEDIA_PG_URL) document.getElementById('pgUrl').value = saved.WAHA_MEDIA_PG_URL;
+      updateStorageFields();
+
+      const info = document.getElementById('storageCurrentConfig');
+      info.innerHTML = 'Active: <code style="color:#4ade80;">' + escHtml(cur.WAHA_MEDIA_STORAGE || 'LOCAL') + '</code>' +
+        (cur.WAHA_MEDIA_S3_BUCKET ? ' &bull; Bucket: <code style="color:#4ade80;">' + escHtml(cur.WAHA_MEDIA_S3_BUCKET) + '</code>' : '') +
+        (cur.WAHA_MEDIA_PG_URL === '***' ? ' &bull; PG: <code style="color:#4ade80;">configured</code>' : '');
+    } catch {}
+  }
+
+  function updateStorageFields() {
+    const val = document.getElementById('storageType').value;
+    document.getElementById('s3Fields').classList.toggle('hidden', val !== 'S3');
+    document.getElementById('pgFields').classList.toggle('hidden', val !== 'POSTGRESQL');
+  }
+
+  async function saveStorageConfig() {
+    const type = document.getElementById('storageType').value;
+    const body = { WAHA_MEDIA_STORAGE: type };
+    if (type === 'S3') {
+      body.WAHA_MEDIA_S3_BUCKET = document.getElementById('s3Bucket').value;
+      body.WAHA_MEDIA_S3_REGION = document.getElementById('s3Region').value;
+      body.WAHA_MEDIA_S3_ENDPOINT = document.getElementById('s3Endpoint').value;
+      body.WAHA_MEDIA_S3_ACCESS_KEY = document.getElementById('s3AccessKey').value;
+      const sec = document.getElementById('s3SecretKey').value;
+      if (sec) body.WAHA_MEDIA_S3_SECRET_KEY = sec;
+    } else if (type === 'POSTGRESQL') {
+      body.WAHA_MEDIA_PG_URL = document.getElementById('pgUrl').value;
+    }
+    try {
+      const resp = await apiFetch('/plus/config/storage', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      const result = await resp.json().catch(() => ({}));
+      const msg = document.getElementById('storageSaveMsg');
+      msg.classList.remove('hidden');
+      if (resp.ok) {
+        msg.style.color = '#86efac';
+        msg.textContent = 'Saved — restart WAHA to apply.';
+        showToast('Storage config saved — restart required', 'success');
+        loadStorageConfig();
+      } else {
+        msg.style.color = '#f87171';
+        msg.textContent = result.message || 'Save failed';
+        showToast(result.message || 'Save failed', 'error');
+      }
+      setTimeout(() => msg.classList.add('hidden'), 5000);
+    } catch { showToast('Failed to save config', 'error'); }
+  }
+
+  // ─── Upstream Sync ────────────────────────────────────────────────────────
+  async function triggerUpstreamSync(deploy) {
+    const syncBtn = document.getElementById('syncBtn');
+    const syncDeployBtn = document.getElementById('syncDeployBtn');
+    const status = document.getElementById('syncStatus');
+    const log = document.getElementById('syncLog');
+
+    syncBtn.disabled = true;
+    syncDeployBtn.disabled = true;
+    status.style.color = '#6b7868';
+    status.textContent = 'Running...';
+    log.classList.remove('hidden');
+    log.textContent = 'Connecting to upstream...\n';
+
+    try {
+      const resp = await apiFetch('/plus/upstream/sync', {
+        method: 'POST',
+        body: JSON.stringify({ deploy: !!deploy }),
+      });
+      const result = await resp.json().catch(() => ({}));
+      log.textContent = result.output || result.error || 'Done.';
+      if (result.error && !result.output) {
+        status.style.color = '#f87171';
+        status.textContent = 'Error';
+        showToast(result.error, 'error');
+      } else if (resp.ok) {
+        status.style.color = '#86efac';
+        status.textContent = result.updated ? 'Updated!' : 'Up to date';
+        showToast(result.updated ? 'Sync complete' : 'Already up to date', 'success');
+      } else {
+        status.style.color = '#f87171';
+        status.textContent = 'Failed';
+        showToast(result.error || 'Sync failed', 'error');
+      }
+    } catch (e) {
+      log.textContent = 'Request failed: ' + e.message;
+      status.style.color = '#f87171';
+      status.textContent = 'Error';
+    } finally {
+      syncBtn.disabled = false;
+      syncDeployBtn.disabled = false;
+    }
   }
 
   // ─── Keyboard shortcuts ───────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import { BulkController } from './bulk.controller';
 import { WebhookPlusController } from './webhook.plus.controller';
 import { DashboardPlusController } from './dashboard.plus.controller';
 import { ServerPlusController } from './server.plus.controller';
+import { ConfigPlusController } from './config.plus.controller';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -64,6 +65,7 @@ const PROVIDERS = [
     WebhookPlusController,
     DashboardPlusController,
     ServerPlusController,
+    ConfigPlusController,
   ],
   providers: PROVIDERS,
 })
