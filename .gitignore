@@ -18,7 +18,8 @@ src/test.ts
 src/test.js
 test.js
 .wwebjs_cache
-src/dashboard
+src/dashboard/
+!src/dashboard/index.html
 .eslintcache
 __pycache__
 

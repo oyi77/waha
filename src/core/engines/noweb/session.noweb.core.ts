@@ -161,8 +161,11 @@ import { MeInfo } from '@waha/structures/sessions.dto';
 import {
   BROADCAST_ID,
   DeleteStatusRequest,
+  ImageStatus,
   StatusRequest,
   TextStatus,
+  VideoStatus,
+  VoiceStatus,
 } from '@waha/structures/status.dto';
 import {
   EnginePayload,
@@ -172,6 +175,7 @@ import {
   WAMessageEditedBody,
   WAMessageRevokedBody,
 } from '@waha/structures/webhooks.dto';
+import { fetchBuffer } from '@waha/utils/fetch';
 import { LoggerBuilder } from '@waha/utils/logging';
 import { sleep, waitUntil } from '@waha/utils/promiseTimeout';
 import { exclude } from '@waha/utils/reactive/ops/exclude';
@@ -897,12 +901,22 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     return true;
   }
 
-  protected setProfilePicture(file: BinaryFile | RemoteFile): Promise<boolean> {
-    throw new AvailableInPlusVersion();
+  protected async setProfilePicture(
+    file: BinaryFile | RemoteFile,
+  ): Promise<boolean> {
+    const buffer =
+      'data' in file
+        ? Buffer.from(file.data, 'base64')
+        : await fetchBuffer(file.url);
+    const jid = toJID(this.ensureSuffix(this.sock.authState.creds.me?.id));
+    await this.sock.updateProfilePicture(jid, buffer);
+    return true;
   }
 
-  protected deleteProfilePicture(): Promise<boolean> {
-    throw new AvailableInPlusVersion();
+  protected async deleteProfilePicture(): Promise<boolean> {
+    const jid = toJID(this.ensureSuffix(this.sock.authState.creds.me?.id));
+    await this.sock.removeProfilePicture(jid);
+    return true;
   }
 
   /**
@@ -1053,32 +1067,83 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     return await this.sock.sendMessage(request.chatId, message, options);
   }
 
-  sendImage(request: MessageImageRequest) {
-    throw new AvailableInPlusVersion();
+  @Activity()
+  async sendImage(request: MessageImageRequest) {
+    const chatId = toJID(this.ensureSuffix(request.chatId));
+    const buffer = await this.uploadMedia(request.file, 'image');
+    const message: any = {
+      image: buffer,
+      caption: request.caption,
+      mimetype: request.file?.mimetype,
+      mentions: request.mentions?.map(toJID),
+    };
+    const options = await this.getMessageOptions(request);
+    return await this.sock.sendMessage(chatId, message, options);
   }
 
-  sendFile(request: MessageFileRequest) {
-    throw new AvailableInPlusVersion();
+  @Activity()
+  async sendFile(request: MessageFileRequest) {
+    const chatId = toJID(this.ensureSuffix(request.chatId));
+    const buffer = await this.uploadMedia(request.file, 'document');
+    const message: any = {
+      document: buffer,
+      caption: request.caption,
+      mimetype: request.file?.mimetype,
+      fileName: request.file?.filename,
+      mentions: request.mentions?.map(toJID),
+    };
+    const options = await this.getMessageOptions(request);
+    return await this.sock.sendMessage(chatId, message, options);
   }
 
-  sendVoice(request: MessageVoiceRequest) {
-    throw new AvailableInPlusVersion();
+  @Activity()
+  async sendVoice(request: MessageVoiceRequest) {
+    const chatId = toJID(this.ensureSuffix(request.chatId));
+    const buffer = await this.uploadMedia(request.file, 'audio');
+    const mimetype = request.file?.mimetype || 'audio/ogg; codecs=opus';
+    const message: any = {
+      audio: buffer,
+      mimetype: mimetype,
+      ptt: true,
+    };
+    const options = await this.getMessageOptions(request);
+    return await this.sock.sendMessage(chatId, message, options);
   }
 
-  sendLinkCustomPreview(
+  @Activity()
+  async sendLinkCustomPreview(
     request: MessageLinkCustomPreviewRequest,
   ): Promise<any> {
-    throw new AvailableInPlusVersion();
+    const chatId = toJID(this.ensureSuffix(request.chatId));
+    const options = await this.getMessageOptions(request);
+    let jpegThumbnail: Buffer | undefined;
+    if (request.preview?.image) {
+      jpegThumbnail = await this.uploadMedia(request.preview.image as any, 'image');
+    }
+    const message: any = {
+      text: request.text,
+      extendedTextMessage: {
+        text: request.text,
+        matchedText: request.preview?.url,
+        title: request.preview?.title,
+        description: request.preview?.description,
+        jpegThumbnail: jpegThumbnail,
+      },
+    };
+    return await this.sock.sendMessage(chatId, message, options);
   }
 
   protected async uploadMedia(
     file: RemoteFile | BinaryFile,
     type,
-  ): Promise<any> {
-    if (file && ('url' in file || 'data' in file)) {
-      throw new AvailableInPlusVersion('Sending media (image, video, pdf)');
+  ): Promise<Buffer | undefined> {
+    if (!file || (!('url' in file) && !('data' in file))) {
+      return undefined;
     }
-    return;
+    if ('data' in file) {
+      return Buffer.from(file.data, 'base64');
+    }
+    return await fetchBuffer(file.url);
   }
 
   @Activity()
@@ -1096,8 +1161,29 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     );
   }
 
-  sendList(request: SendListRequest): Promise<any> {
-    throw new AvailableInPlusVersion();
+  @Activity()
+  async sendList(request: SendListRequest): Promise<any> {
+    const chatId = toJID(this.ensureSuffix(request.chatId));
+    const options = await this.getMessageOptions(request);
+    const sections = request.message.sections.map((section) => ({
+      title: section.title,
+      rows: section.rows.map((row) => ({
+        title: row.title,
+        description: row.description,
+        rowId: row.rowId,
+      })),
+    }));
+    const message = {
+      listMessage: {
+        title: request.message.title,
+        description: request.message.description,
+        buttonText: request.message.button,
+        footerText: request.message.footer,
+        listType: 1,
+        sections: sections,
+      },
+    };
+    return await this.sock.sendMessage(chatId, message as any, options);
   }
 
   @Activity()
@@ -1878,6 +1964,80 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       backgroundColor: status.backgroundColor,
       font: status.font,
       linkPreviewHighQuality: status.linkPreviewHighQuality,
+      messageId: messageId,
+    };
+    return await this.sendStatusMessage(
+      message,
+      options,
+      jids,
+      status.contacts?.length,
+    );
+  }
+
+  @Activity()
+  public async sendImageStatus(status: ImageStatus) {
+    const buffer = await this.uploadMedia(status.file, 'image');
+    const message = {
+      image: buffer,
+      caption: status.caption,
+      mimetype: status.file?.mimetype,
+    };
+    const jids = await this.prepareJidsForStatus(status.contacts);
+    if (!status.id) {
+      this.upsertMeInJIDs(jids);
+    }
+    const messageId = this.prepareMessageIdForStatus(status);
+    const options: MiscMessageGenerationOptions = {
+      messageId: messageId,
+    };
+    return await this.sendStatusMessage(
+      message,
+      options,
+      jids,
+      status.contacts?.length,
+    );
+  }
+
+  @Activity()
+  public async sendVoiceStatus(status: VoiceStatus) {
+    const buffer = await this.uploadMedia(status.file as any, 'audio');
+    const mimetype = status.file?.mimetype || 'audio/ogg; codecs=opus';
+    const message = {
+      audio: buffer,
+      mimetype: mimetype,
+      ptt: true,
+    };
+    const jids = await this.prepareJidsForStatus(status.contacts);
+    if (!status.id) {
+      this.upsertMeInJIDs(jids);
+    }
+    const messageId = this.prepareMessageIdForStatus(status);
+    const options: MiscMessageGenerationOptions = {
+      backgroundColor: status.backgroundColor,
+      messageId: messageId,
+    };
+    return await this.sendStatusMessage(
+      message,
+      options,
+      jids,
+      status.contacts?.length,
+    );
+  }
+
+  @Activity()
+  public async sendVideoStatus(status: VideoStatus) {
+    const buffer = await this.uploadMedia(status.file as any, 'video');
+    const message = {
+      video: buffer,
+      caption: status.caption,
+      mimetype: status.file?.mimetype,
+    };
+    const jids = await this.prepareJidsForStatus(status.contacts);
+    if (!status.id) {
+      this.upsertMeInJIDs(jids);
+    }
+    const messageId = this.prepareMessageIdForStatus(status);
+    const options: MiscMessageGenerationOptions = {
       messageId: messageId,
     };
     return await this.sendStatusMessage(

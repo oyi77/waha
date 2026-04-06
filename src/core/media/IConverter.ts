@@ -1,16 +1,16 @@
-import { AvailableInPlusVersion } from '../exceptions';
-
 export interface IMediaConverter {
   voice(content: Buffer): Promise<Buffer>;
   video(content: Buffer): Promise<Buffer>;
 }
 
 export class CoreMediaConverter implements IMediaConverter {
-  video(content: Buffer): Promise<Buffer> {
-    throw new AvailableInPlusVersion();
+  async video(content: Buffer): Promise<Buffer> {
+    // Passthrough without conversion
+    return content;
   }
 
-  voice(content: Buffer): Promise<Buffer> {
-    throw new AvailableInPlusVersion();
+  async voice(content: Buffer): Promise<Buffer> {
+    // Passthrough without conversion
+    return content;
   }
 }

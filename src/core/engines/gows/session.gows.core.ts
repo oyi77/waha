@@ -145,6 +145,7 @@ import {
   WAMessageRevokedBody,
 } from '@waha/structures/webhooks.dto';
 import { PaginatorInMemory } from '@waha/utils/Paginator';
+import { fetchBuffer } from '@waha/utils/fetch';
 import { sleep, waitUntil } from '@waha/utils/promiseTimeout';
 import { onlyEvent } from '@waha/utils/reactive/ops/onlyEvent';
 import * as NodeCache from 'node-cache';
@@ -898,11 +899,23 @@ export class WhatsappSessionGoWSCore extends WhatsappSession {
     return true;
   }
 
-  protected setProfilePicture(file: BinaryFile | RemoteFile): Promise<boolean> {
-    throw new AvailableInPlusVersion();
+  protected async setProfilePicture(
+    file: BinaryFile | RemoteFile,
+  ): Promise<boolean> {
+    const buffer =
+      'data' in file
+        ? Buffer.from(file.data, 'base64')
+        : await fetchBuffer(file.url);
+    const request = new messages.SetProfilePictureRequest({
+      session: this.session,
+      picture: new Uint8Array(buffer),
+    });
+    await promisify(this.client.SetProfilePicture)(request);
+    return true;
   }
 
   protected deleteProfilePicture(): Promise<boolean> {
+    // No RemoveProfilePicture gRPC method available
     throw new AvailableInPlusVersion();
   }
 

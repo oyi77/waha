@@ -8,6 +8,8 @@ import {
 } from '@waha/core/app.module.core';
 import { WAHAHealthCheckServiceCore } from '@waha/core/health/WAHAHealthCheckServiceCore';
 import { MediaLocalStorageModule } from '@waha/core/media/local/media.local.storage.module';
+import { MediaS3StorageModule } from '@waha/plus/media/s3/media.s3.storage.module';
+import { MediaPgStorageModule } from '@waha/plus/media/pg/media.pg.storage.module';
 import { ChannelsInfoServiceCore } from '@waha/core/services/ChannelsInfoServiceCore';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { ConfigModule } from '@nestjs/config';
@@ -20,6 +22,13 @@ import { WebhookPlusController } from './webhook.plus.controller';
 import { DashboardPlusController } from './dashboard.plus.controller';
 import { ServerPlusController } from './server.plus.controller';
 
+function getMediaStorageModule() {
+  const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
+  if (storage === 'S3') return MediaS3StorageModule;
+  if (storage === 'POSTGRESQL') return MediaPgStorageModule;
+  return MediaLocalStorageModule;
+}
+
 const IMPORTS_MEDIA = [
   ConfigModule.forRoot({
     validationSchema: Joi.object({
@@ -28,7 +37,7 @@ const IMPORTS_MEDIA = [
         .default('LOCAL'),
     }),
   }),
-  MediaLocalStorageModule,
+  getMediaStorageModule(),
 ];
 
 const IMPORTS = [...IMPORTS_CORE, ...IMPORTS_MEDIA];

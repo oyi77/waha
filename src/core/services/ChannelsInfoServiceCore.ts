@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { AvailableInPlusVersion } from '@waha/core/exceptions';
 import {
   ChannelCategory,
   ChannelCountry,
@@ -9,14 +8,14 @@ import {
 @Injectable()
 export class ChannelsInfoServiceCore {
   async getCountries(): Promise<ChannelCountry[]> {
-    throw new AvailableInPlusVersion();
+    return [];
   }
 
   async getCategories(): Promise<ChannelCategory[]> {
-    throw new AvailableInPlusVersion();
+    return [];
   }
 
   async getViews(): Promise<ChannelView[]> {
-    throw new AvailableInPlusVersion();
+    return [];
   }
 }

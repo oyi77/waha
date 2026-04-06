@@ -121,10 +121,7 @@ import {
   WppSendTextOptions,
   WppSendTextStatusOptions,
 } from '@waha/core/engines/wpp/WppTypes';
-import {
-  AvailableInPlusVersion,
-  NotImplementedByEngineError,
-} from '@waha/core/exceptions';
+import { NotImplementedByEngineError } from '@waha/core/exceptions';
 import { IMediaEngineProcessor } from '@waha/core/media/IMediaEngineProcessor';
 import { IWPPAuthManager } from '@waha/core/engines/wpp/IWPPAuthManager';
 import { QR } from '@waha/core/QR';
@@ -623,19 +620,56 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
     return this.toWAMessage(sent);
   }
 
-  public sendImage(request: MessageImageRequest) {
-    void request;
-    throw new AvailableInPlusVersion();
+  @Activity()
+  public async sendImage(request: MessageImageRequest) {
+    const chatId = this.ensureSuffix(request.chatId);
+    const content = await this.fileToBuffer(request.file);
+    const mimetype = MimetypeForDataUrl(
+      request.file?.mimetype || 'image/jpeg',
+    );
+    const base64 = content.toString('base64');
+    const media = `data:${mimetype};base64,${base64}`;
+    const quotedMessageId = this.getReplyToMessageId(request as any);
+    const options: any = {
+      caption: request.caption,
+      quotedMsg: quotedMessageId,
+      waitForAck: false,
+    };
+    const sent = await this.wpp!.sendImage(chatId, media, options);
+    return this.toWAMessage(sent);
   }
 
-  public sendFile(request: MessageFileRequest) {
-    void request;
-    throw new AvailableInPlusVersion();
+  @Activity()
+  public async sendFile(request: MessageFileRequest) {
+    const chatId = this.ensureSuffix(request.chatId);
+    const content = await this.fileToBuffer(request.file);
+    const mimetype = MimetypeForDataUrl(
+      request.file?.mimetype || 'application/octet-stream',
+    );
+    const base64 = content.toString('base64');
+    const media = `data:${mimetype};base64,${base64}`;
+    const quotedMessageId = this.getReplyToMessageId(request as any);
+    const filename = request.file?.filename || 'file';
+    const options: any = {
+      caption: request.caption,
+      quotedMsg: quotedMessageId,
+      waitForAck: false,
+    };
+    const sent = await this.wpp!.sendFile(chatId, media, filename, options);
+    return this.toWAMessage(sent);
   }
 
-  public sendVoice(request: MessageVoiceRequest) {
-    void request;
-    throw new AvailableInPlusVersion();
+  @Activity()
+  public async sendVoice(request: MessageVoiceRequest) {
+    const chatId = this.ensureSuffix(request.chatId);
+    const content = await this.fileToBuffer(request.file);
+    const mimetype = MimetypeForDataUrl(
+      request.file?.mimetype || 'audio/ogg; codecs=opus',
+    );
+    const base64 = content.toString('base64');
+    const media = `data:${mimetype};base64,${base64}`;
+    const sent = await this.wpp!.sendPtt(chatId, media);
+    return this.toWAMessage(sent);
   }
 
   @Activity()
