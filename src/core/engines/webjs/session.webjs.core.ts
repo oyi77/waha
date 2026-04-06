@@ -755,18 +755,12 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     } else {
       media = await MessageMedia.fromUrl(file.url, { unsafeMime: true });
     }
-    const contact = await this.whatsapp.getContactById(
-      this.ensureSuffix(this.me!.id),
-    );
-    await this.whatsapp.setProfilePicture(contact, media);
+    await this.whatsapp.setProfilePicture(media);
     return true;
   }
 
   protected async deleteProfilePicture(): Promise<boolean> {
-    const contact = await this.whatsapp.getContactById(
-      this.ensureSuffix(this.me!.id),
-    );
-    await this.whatsapp.deleteProfilePicture(contact);
+    await this.whatsapp.deleteProfilePicture();
     return true;
   }
 
