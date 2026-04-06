@@ -655,6 +655,29 @@
       </div>
     </div>
 
+    <!-- Dashboard Credentials -->
+    <div class="card p-5 mb-4">
+      <div class="section-title mb-1">Dashboard Credentials</div>
+      <p class="text-xs mb-4" style="color:#6b7868;">Saved to <code style="color:#86efac;">waha-config.json</code> — restart WAHA to apply. You will need to log in again with the new credentials.</p>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">Username</label>
+            <input id="dashUser" type="text" class="input-field font-mono" placeholder="waha" autocomplete="off" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:#6b7868;">New Password</label>
+            <input id="dashPass" type="password" class="input-field font-mono" placeholder="leave blank to keep current" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="flex items-center gap-3 pt-1">
+          <button onclick="saveDashAuth()" class="btn-primary text-sm px-4 py-2">Save Credentials</button>
+          <span id="dashAuthMsg" class="text-xs hidden"></span>
+        </div>
+        <div id="dashAuthCurrent" class="text-xs" style="color:#6b7868;"></div>
+      </div>
+    </div>
+
     <!-- Media Storage Config -->
     <div class="card p-5 mb-4">
       <div class="section-title mb-1">Media Storage</div>
@@ -918,7 +941,7 @@
     status: loadStatus,
     webhooks: loadWebhooks,
     broadcast: loadBroadcast,
-    config: () => { loadConfig(); loadStorageConfig(); },
+    config: () => { loadConfig(); loadDashAuthConfig(); loadStorageConfig(); },
   };
 
   function switchTab(tab) {
@@ -1565,6 +1588,61 @@
 
   function escAttr(s) {
     return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  }
+
+  // ─── Dashboard Auth Config ────────────────────────────────────────────────
+  async function loadDashAuthConfig() {
+    try {
+      const resp = await apiFetch('/plus/config/auth');
+      if (!resp.ok) return;
+      const data = await resp.json().catch(() => ({}));
+      if (data.currentUsername) {
+        document.getElementById('dashUser').value = data.currentUsername;
+      }
+      const info = document.getElementById('dashAuthCurrent');
+      info.innerHTML = data.usernameSet
+        ? 'Current: <code style="color:#4ade80;">' + escHtml(data.currentUsername || 'set') + '</code>' +
+          ' &bull; Password: <code style="color:#4ade80;">' + (data.passwordSet ? 'set' : 'not set') + '</code>'
+        : '<span style="color:#fbbf24;">No credentials set — dashboard is open to all.</span>';
+    } catch {}
+  }
+
+  async function saveDashAuth() {
+    const username = document.getElementById('dashUser').value.trim();
+    const password = document.getElementById('dashPass').value;
+    const msg = document.getElementById('dashAuthMsg');
+
+    if (!username) {
+      msg.classList.remove('hidden');
+      msg.style.color = '#f87171';
+      msg.textContent = 'Username cannot be empty.';
+      setTimeout(() => msg.classList.add('hidden'), 4000);
+      return;
+    }
+
+    const body = { username };
+    if (password) body.password = password;
+
+    try {
+      const resp = await apiFetch('/plus/config/auth', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      const result = await resp.json().catch(() => ({}));
+      msg.classList.remove('hidden');
+      if (resp.ok) {
+        msg.style.color = '#86efac';
+        msg.textContent = 'Saved — restart WAHA to apply.';
+        document.getElementById('dashPass').value = '';
+        showToast('Credentials saved — restart required', 'success');
+        loadDashAuthConfig();
+      } else {
+        msg.style.color = '#f87171';
+        msg.textContent = result.message || 'Save failed';
+        showToast(result.message || 'Save failed', 'error');
+      }
+      setTimeout(() => msg.classList.add('hidden'), 5000);
+    } catch { showToast('Failed to save credentials', 'error'); }
   }
 
   // ─── Storage Config ───────────────────────────────────────────────────────

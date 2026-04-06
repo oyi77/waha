@@ -119,6 +119,69 @@ export class ConfigPlusController {
     };
   }
 
+  // ── Dashboard auth config ─────────────────────────────────────────────────
+
+  @Get('config/auth')
+  @CheckPolicies(CanServer(Action.Read))
+  @ApiOperation({
+    summary: 'Get dashboard credential configuration',
+    description:
+      'Returns whether WAHA_DASHBOARD_USERNAME and WAHA_DASHBOARD_PASSWORD are set. ' +
+      'Passwords are never returned in plaintext.',
+  })
+  getAuthConfig() {
+    const saved = readConfigFile();
+    return {
+      usernameSet: !!(
+        process.env.WAHA_DASHBOARD_USERNAME || saved.WAHA_DASHBOARD_USERNAME
+      ),
+      passwordSet: !!(
+        process.env.WAHA_DASHBOARD_PASSWORD || saved.WAHA_DASHBOARD_PASSWORD
+      ),
+      currentUsername:
+        process.env.WAHA_DASHBOARD_USERNAME ||
+        saved.WAHA_DASHBOARD_USERNAME ||
+        '',
+      savedUsername: saved.WAHA_DASHBOARD_USERNAME || '',
+    };
+  }
+
+  @Post('config/auth')
+  @CheckPolicies(CanServer(Action.Use))
+  @ApiOperation({
+    summary: 'Update dashboard username and password',
+    description:
+      'Saves WAHA_DASHBOARD_USERNAME and WAHA_DASHBOARD_PASSWORD to waha-config.json. ' +
+      'Changes take effect after restarting WAHA.',
+  })
+  saveAuthConfig(@Body() body: { username?: string; password?: string }) {
+    const existing = readConfigFile();
+
+    if (body.username !== undefined && body.username !== null) {
+      if (body.username === '') {
+        delete existing.WAHA_DASHBOARD_USERNAME;
+      } else {
+        existing.WAHA_DASHBOARD_USERNAME = body.username;
+      }
+    }
+
+    if (body.password !== undefined && body.password !== null) {
+      if (body.password === '') {
+        delete existing.WAHA_DASHBOARD_PASSWORD;
+      } else {
+        existing.WAHA_DASHBOARD_PASSWORD = body.password;
+      }
+    }
+
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(existing, null, 2));
+    return {
+      saved: true,
+      message:
+        'Credentials saved. Restart WAHA to apply. ' +
+        'You will need to log in again with the new credentials.',
+    };
+  }
+
   // ── Upstream sync ─────────────────────────────────────────────────────────
 
   @Post('upstream/sync')
