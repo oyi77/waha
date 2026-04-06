@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { DashboardConfigServiceCore } from '@waha/core/config/DashboardConfigServiceCore';
 import { makeAuthToken } from '@waha/core/auth/dashboardCookieAuth';
-import { Response } from 'express';
+import { Auth } from '@waha/core/auth/config';
+import { Request, Response } from 'express';
 
 class LoginBody {
   @ApiProperty({ required: true })
@@ -52,5 +53,36 @@ export class DashboardLoginController {
   logout(@Res() res: Response) {
     res.clearCookie('waha-auth', { path: '/' });
     return res.json({ success: true });
+  }
+
+  @Get('config')
+  @ApiOperation({
+    summary: 'Dashboard config for authenticated users',
+    description:
+      'Returns the plain API key for authenticated dashboard users (verified via waha-auth cookie). ' +
+      'No API key required — excluded from API key auth.',
+  })
+  getConfig(@Req() req: Request, @Res() res: Response) {
+    const credentials = this.dashboardConfig.credentials;
+
+    // Verify waha-auth cookie when credentials are configured
+    if (credentials) {
+      const [username, password] = credentials;
+      const validToken = makeAuthToken(username, password);
+      const cookieHeader: string = (req.headers.cookie as string) || '';
+      const cookies: Record<string, string> = {};
+      for (const pair of cookieHeader.split(';')) {
+        const idx = pair.indexOf('=');
+        if (idx < 0) continue;
+        cookies[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
+      }
+      if (cookies['waha-auth'] !== validToken) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+    }
+
+    // Return the plain API key (from WAHA_API_KEY_PLAIN env or the raw key)
+    const plainKey = Auth.keyplain?.value || '';
+    return res.json({ apiKey: plainKey });
   }
 }

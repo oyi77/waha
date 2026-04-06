@@ -872,12 +872,25 @@
   let qrCurrentSession = null;
 
   // ─── Init ─────────────────────────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     const saved = localStorage.getItem('waha_api_key');
     if (saved) {
       document.getElementById('apiKeyInput').value = saved;
+      loadSessions();
+    } else {
+      // Auto-fetch API key for authenticated dashboard users
+      try {
+        const resp = await fetch('/api/dashboard/config', { credentials: 'same-origin' });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.apiKey) {
+            saveApiKey(data.apiKey);
+            document.getElementById('apiKeyInput').value = data.apiKey;
+          }
+        }
+      } catch {}
+      loadSessions();
     }
-    loadSessions();
   });
 
   // ─── API Key ──────────────────────────────────────────────────────────────

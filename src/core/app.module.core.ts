@@ -251,9 +251,10 @@ export class AppModuleCore {
       .apply(ApiKeyAuthMiddleware)
       .exclude(
         ...exclude,
-        // Dashboard login/logout are public — no API key required
+        // Dashboard login/logout/config are public — no API key required
         '/api/dashboard/login',
         '/api/dashboard/logout',
+        '/api/dashboard/config',
       )
       .forRoutes('api', 'health');
 
