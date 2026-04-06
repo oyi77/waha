@@ -19,7 +19,7 @@ import { ContactsSessionController } from '@waha/api/contacts.session.controller
 import { ApiKeyStrategy } from '@waha/core/auth/apiKey.strategy';
 import { IApiKeyAuth } from '@waha/core/auth/auth';
 import { ApiKeyAuthMiddleware } from '@waha/core/auth/api-key-auth.middleware';
-import { BasicAuthFunction } from '@waha/core/auth/basicAuth';
+import { DashboardCookieAuthFunction } from '@waha/core/auth/dashboardCookieAuth';
 import { WebSocketAuth } from '@waha/core/auth/WebSocketAuth';
 import { GowsEngineConfigService } from '@waha/core/config/GowsEngineConfigService';
 import { WPPEngineConfigService } from '@waha/core/config/WPPEngineConfigService';
@@ -249,16 +249,21 @@ export class AppModuleCore {
     const exclude = this.config.getExcludedPaths();
     consumer
       .apply(ApiKeyAuthMiddleware)
-      .exclude(...exclude)
+      .exclude(
+        ...exclude,
+        // Dashboard login/logout are public — no API key required
+        '/api/dashboard/login',
+        '/api/dashboard/logout',
+      )
       .forRoutes('api', 'health');
 
-    // Dashboard
+    // Dashboard — cookie-based auth (custom login page, no browser dialog)
     const dashboardCredentials = this.dashboardConfig.credentials;
     if (dashboardCredentials) {
       const username = dashboardCredentials[0];
       const password = dashboardCredentials[1];
       consumer
-        .apply(BasicAuthFunction(username, password))
+        .apply(DashboardCookieAuthFunction(username, password))
         .forRoutes('dashboard');
     }
   }
