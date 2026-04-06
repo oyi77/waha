@@ -25,6 +25,8 @@ services:
       - WHATSAPP_DEFAULT_ENGINE=${WHATSAPP_DEFAULT_ENGINE:-NOWEB}
       # Security: set a strong API key
       - WAHA_API_KEY=${WAHA_API_KEY:-changeme-use-a-strong-key}
+      # Plain key preserved so /api/dashboard/config can return it to the UI
+      - WAHA_API_KEY_PLAIN=${WAHA_API_KEY:-changeme-use-a-strong-key}
       # Session limits: 0 = unlimited
       - WAHA_MAX_SESSIONS=${WAHA_MAX_SESSIONS:-0}
       # Auto-start sessions on container boot (comma-separated names)
