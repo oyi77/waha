@@ -31,7 +31,8 @@ export function DashboardCookieAuthFunction(
   const validToken = makeAuthToken(username, password);
 
   return function dashboardCookieAuth(req: any, res: any, next: () => void) {
-    const url: string = req.url || '';
+    // Use originalUrl (full path) because NestJS forRoutes() strips the prefix from req.url
+    const url: string = req.originalUrl || req.url || '';
 
     // Allow the login page through without a cookie
     if (

@@ -38,6 +38,8 @@ services:
       # Webhook (optional global webhook for all sessions)
       - WHATSAPP_HOOK_URL=${WHATSAPP_HOOK_URL:-}
       - WHATSAPP_HOOK_EVENTS=${WHATSAPP_HOOK_EVENTS:-message}
+      # Disable Swagger BasicAuth (uses cookie auth for dashboard instead)
+      - WHATSAPP_SWAGGER_NO_PASSWORD=true
       # Version: force PLUS mode
       - WAHA_VERSION=PLUS
     volumes:
