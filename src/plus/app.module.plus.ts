@@ -23,6 +23,13 @@ import { DashboardPlusController } from './dashboard.plus.controller';
 import { ServerPlusController } from './server.plus.controller';
 import { ConfigPlusController } from './config.plus.controller';
 import { DashboardLoginController } from './dashboard.login.controller';
+import { ScheduleController } from './schedule.controller';
+import { ScheduleService } from './schedule.service';
+import { TemplatesController } from './templates.controller';
+import { TemplatesService } from './templates.service';
+import { AutoReplyController } from './autoreply.controller';
+import { AutoReplyService } from './autoreply.service';
+import { WahaMcpController } from './mcp/waha.mcp.controller';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -55,6 +62,9 @@ const PROVIDERS = [
   },
   ChannelsInfoServiceCore,
   ...PROVIDERS_BASE,
+  ScheduleService,
+  TemplatesService,
+  AutoReplyService,
 ];
 
 @Module({
@@ -68,6 +78,10 @@ const PROVIDERS = [
     ServerPlusController,
     ConfigPlusController,
     DashboardLoginController,
+    ScheduleController,
+    TemplatesController,
+    AutoReplyController,
+    WahaMcpController,
   ],
   providers: PROVIDERS,
 })
