@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { All, Controller, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiSecurity } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -377,8 +377,7 @@ export class WahaMcpController {
     return this._mcpServer;
   }
 
-  @Get('/mcp')
-  @Post('/mcp')
+  @All('/mcp')
   @CheckPolicies(CanServer(Action.Read))
   @ApiOperation({
     summary: 'MCP endpoint — connect AI assistants to WAHA via Streamable HTTP',
