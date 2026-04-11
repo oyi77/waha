@@ -267,6 +267,9 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
       await session.start();
       logger.info('Session has been started.');
       await this.appsService.afterSessionStart(session, this.store);
+    } else {
+      // Session failed before start — mark as not running so it can be restarted
+      this.sessions.set(name, null);
     }
 
     // Track on worker for auto-restart
@@ -415,13 +418,18 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     let running = 0;
     let stopped = 0;
     let failed = 0;
-    for (const session of this.sessions.values()) {
+    const tracked = new Set([
+      ...this.sessions.keys(),
+      ...this.sessionConfigMap.keys(),
+    ]);
+    for (const name of tracked) {
+      const session = this.sessions.get(name);
       if (!session) stopped++;
       else if (session.status === WAHASessionStatus.FAILED) failed++;
       else running++;
     }
     return {
-      total: this.sessions.size,
+      total: tracked.size,
       running,
       stopped,
       failed,

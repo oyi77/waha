@@ -13,6 +13,7 @@ import { CheckPolicies } from '@waha/core/auth/policies.decorator';
 import { CanSession, FromBody } from '@waha/core/auth/policies';
 import { Action } from '@waha/core/auth/casl.types';
 import { WAHAValidationPipe } from '@waha/nestjs/pipes/WAHAValidationPipe';
+import { sleep } from '@waha/utils/promiseTimeout';
 import { IsArray, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 class BroadcastTextRequest {
@@ -59,10 +60,6 @@ class BroadcastResult {
     },
   })
   failed: { chatId: string; error: string }[];
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 @ApiSecurity('api_key')

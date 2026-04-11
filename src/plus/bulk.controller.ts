@@ -13,12 +13,13 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { ApiOperation, ApiProperty, ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { SessionManager } from '../core/abc/manager.abc';
-import { PoliciesGuard } from '../core/auth/policies.guard';
-import { CheckPolicies } from '../core/auth/policies.decorator';
-import { CanSession, FromBody } from '../core/auth/policies';
-import { Action } from '../core/auth/casl.types';
-import { WAHAValidationPipe } from '../nestjs/pipes/WAHAValidationPipe';
+import { SessionManager } from '@waha/core/abc/manager.abc';
+import { PoliciesGuard } from '@waha/core/auth/policies.guard';
+import { CheckPolicies } from '@waha/core/auth/policies.decorator';
+import { CanSession, FromBody } from '@waha/core/auth/policies';
+import { Action } from '@waha/core/auth/casl.types';
+import { WAHAValidationPipe } from '@waha/nestjs/pipes/WAHAValidationPipe';
+import { sleep } from '@waha/utils/promiseTimeout';
 import {
   IsArray,
   IsNumber,
@@ -104,10 +105,6 @@ class BulkCheckResult {
 
   @ApiProperty()
   failed: { phone: string; error: string }[];
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ── Controller ───────────────────────────────────────────────────────────────
