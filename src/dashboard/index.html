@@ -1215,6 +1215,20 @@
     if (qrCurrentSession) loadQrCode(qrCurrentSession);
   }
 
+  async function restartAndReloadQr() {
+    if (!qrCurrentSession) return;
+    const content = document.getElementById('qrContent');
+    content.innerHTML = `<div class="flex flex-col items-center gap-2"><div class="loading-spinner"></div><span class="text-sm" style="color:#6b7868;">Restarting session...</span></div>`;
+    try {
+      await sessionAction('restart', qrCurrentSession);
+      // Wait briefly for the session to start generating a QR code
+      await new Promise(r => setTimeout(r, 3000));
+      loadQrCode(qrCurrentSession);
+    } catch {
+      content.innerHTML = `<p class="text-sm" style="color:#f87171;">Failed to restart session.</p>`;
+    }
+  }
+
   async function loadQrCode(sessionName) {
     const content = document.getElementById('qrContent');
     content.innerHTML = `<div class="flex flex-col items-center gap-2"><div class="loading-spinner"></div><span class="text-sm" style="color:#6b7868;">Loading QR code...</span></div>`;
@@ -1229,7 +1243,12 @@
       }
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
-        content.innerHTML = `<p class="text-sm" style="color:#f87171;">${body.message || 'QR code not available. Session may already be authenticated.'}</p>`;
+        const msg = body.message || 'QR code not available. Session may already be authenticated.';
+        content.innerHTML = `
+          <div class="flex flex-col items-center gap-3 text-center">
+            <p class="text-sm" style="color:#f87171;">${msg}</p>
+            <button onclick="restartAndReloadQr()" class="btn-secondary text-sm px-4 py-2">🔄 Restart Session</button>
+          </div>`;
         return;
       }
       const blob = await resp.blob();
