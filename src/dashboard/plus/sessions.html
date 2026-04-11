@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WAHA Plus — Sessions Manager</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2316a34a'/><path d='M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z' fill='white'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #0a0f0a;
+      color: #e2e8e0;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+
+    /* ---- NAV ---- */
+    .nav {
+      background: rgba(12,20,15,0.95);
+      border-bottom: 1px solid rgba(34,197,94,0.15);
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 16px;
+      height: 56px; position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .nav-logo { font-size: 18px; font-weight: 700; color: #22c55e; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+    .nav-sep { color: rgba(34,197,94,0.3); }
+    .nav-title { font-size: 14px; color: #86efac; }
+    .nav-back { margin-left: auto; font-size: 13px; color: #86efac; text-decoration: none; padding: 6px 14px; border: 1px solid rgba(34,197,94,0.3); border-radius: 6px; transition: background 0.2s; }
+    .nav-back:hover { background: rgba(34,197,94,0.1); }
+
+    /* ---- LAYOUT ---- */
+    .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+    .page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 40px; gap: 16px; flex-wrap: wrap;
+    }
+    .page-header h1 { font-size: 28px; font-weight: 700; color: #f0fdf4; margin-bottom: 6px; }
+    .page-header .subtitle { color: #86efac; font-size: 14px; }
+
+    /* ---- BUTTONS ---- */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 18px; border-radius: 8px; font-size: 14px;
+      font-weight: 600; cursor: pointer; border: none;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: #16a34a; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #15803d; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(34,197,94,0.25); }
+    .btn-secondary { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+    .btn-secondary:hover:not(:disabled) { background: rgba(34,197,94,0.2); }
+    .btn-ghost { background: transparent; color: #86efac; border: 1px solid rgba(34,197,94,0.2); font-size: 13px; padding: 7px 14px; }
+    .btn-ghost:hover:not(:disabled) { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.4); }
+    .btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); font-size: 13px; padding: 7px 14px; }
+    .btn-danger:hover:not(:disabled) { background: rgba(239,68,68,0.22); }
+    .btn-sm { font-size: 12px; padding: 6px 12px; }
+
+    /* ---- SESSIONS GRID ---- */
+    .sessions-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    @media (max-width: 1024px) { .sessions-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .sessions-grid { grid-template-columns: 1fr; } }
+
+    /* ---- SESSION CARD ---- */
+    .session-card {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(34,197,94,0.15);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      display: flex; flex-direction: column; gap: 16px;
+      opacity: 0; transform: translateY(12px);
+      transition: border-color 0.2s, box-shadow 0.2s, opacity 0.35s ease, transform 0.35s ease;
+    }
+    .session-card.visible { opacity: 1; transform: translateY(0); }
+    .session-card:hover { border-color: rgba(34,197,94,0.35); box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .session-card.flash-success {
+      animation: flash-success 0.6s ease;
+    }
+    .session-card.flash-error {
+      animation: flash-error 0.5s ease;
+    }
+
+    @keyframes flash-success {
+      0%   { border-color: rgba(34,197,94,0.15); box-shadow: none; }
+      40%  { border-color: rgba(34,197,94,0.8); box-shadow: 0 0 20px rgba(34,197,94,0.3); }
+      100% { border-color: rgba(34,197,94,0.15); box-shadow: none; }
+    }
+    @keyframes flash-error {
+      0%, 100% { transform: translateX(0); }
+      20%  { transform: translateX(-6px); }
+      40%  { transform: translateX(6px); }
+      60%  { transform: translateX(-4px); }
+      80%  { transform: translateX(4px); }
+    }
+
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .session-name {
+      font-family: 'DM Mono', monospace;
+      font-size: 17px; font-weight: 500;
+      color: #f0fdf4;
+      word-break: break-all;
+    }
+
+    /* ---- STATUS BADGES ---- */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.04em; white-space: nowrap;
+    }
+    .badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+    }
+    .badge-working   { background: rgba(34,197,94,0.15);  color: #4ade80;  border: 1px solid rgba(34,197,94,0.35); }
+    .badge-starting  { background: rgba(234,179,8,0.15);  color: #facc15;  border: 1px solid rgba(234,179,8,0.35); }
+    .badge-scan_qr_code { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.35); }
+    .badge-stopped   { background: rgba(100,116,139,0.15); color: #94a3b8;  border: 1px solid rgba(100,116,139,0.3); }
+    .badge-failed    { background: rgba(239,68,68,0.15);   color: #f87171;  border: 1px solid rgba(239,68,68,0.35); }
+
+    .badge-working   .badge-dot { background: #22c55e; }
+    .badge-starting  .badge-dot { background: #eab308; animation: pulse-dot 1.2s ease infinite; }
+    .badge-scan_qr_code .badge-dot { background: #3b82f6; animation: pulse-dot 1s ease infinite; }
+    .badge-stopped   .badge-dot { background: #64748b; }
+    .badge-failed    .badge-dot { background: #ef4444; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ---- ENGINE PILLS ---- */
+    .engine-pill {
+      display: inline-block; padding: 2px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+      font-family: 'DM Mono', monospace;
+    }
+    .engine-NOWEB { background: rgba(34,197,94,0.12);  color: #4ade80;  border: 1px solid rgba(34,197,94,0.3); }
+    .engine-WEBJS { background: rgba(59,130,246,0.12); color: #60a5fa;  border: 1px solid rgba(59,130,246,0.3); }
+    .engine-WPP   { background: rgba(168,85,247,0.12); color: #c084fc;  border: 1px solid rgba(168,85,247,0.3); }
+    .engine-GOWS  { background: rgba(249,115,22,0.12); color: #fb923c;  border: 1px solid rgba(249,115,22,0.3); }
+
+    /* ---- CARD ACTIONS ---- */
+    .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* ---- QR INLINE ---- */
+    .qr-container {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      display: none;
+    }
+    .qr-container.open { display: block; }
+    .qr-container img { width: 200px; height: 200px; border-radius: 8px; }
+    .qr-instruction { font-size: 12px; color: #93c5fd; margin-top: 10px; line-height: 1.5; }
+    .qr-refresh-note { font-size: 11px; color: rgba(147,197,253,0.5); margin-top: 6px; }
+
+    /* ---- SKELETON ---- */
+    .skeleton-card {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(34,197,94,0.08);
+      border-radius: 16px; padding: 24px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .skeleton-line {
+      background: linear-gradient(90deg, rgba(34,197,94,0.06) 25%, rgba(34,197,94,0.12) 50%, rgba(34,197,94,0.06) 75%);
+      background-size: 200% 100%;
+      border-radius: 6px;
+      animation: shimmer 1.4s ease infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ---- EMPTY STATE ---- */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 64px 24px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(34,197,94,0.12);
+      border-radius: 20px;
+      backdrop-filter: blur(12px);
+    }
+    .empty-icon { font-size: 52px; margin-bottom: 20px; opacity: 0.6; }
+    .empty-title { font-size: 20px; font-weight: 700; color: #f0fdf4; margin-bottom: 10px; }
+    .empty-desc { font-size: 14px; color: #86efac; margin-bottom: 28px; line-height: 1.6; }
+
+    /* ---- MODAL OVERLAY ---- */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+      z-index: 500;
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: #0d1a12;
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 20px 20px 0 0;
+      padding: 32px;
+      width: 100%;
+      max-width: 580px;
+      max-height: 85vh;
+      overflow-y: auto;
+      transform: translateY(40px);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    @media (min-width: 640px) {
+      .modal-overlay { align-items: center; }
+      .modal { border-radius: 20px; }
+    }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .modal-title { font-size: 20px; font-weight: 700; color: #f0fdf4; }
+    .modal-close {
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2);
+      color: #86efac; width: 32px; height: 32px; border-radius: 8px;
+      cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .modal-close:hover { background: rgba(34,197,94,0.2); }
+
+    /* ---- STEP INDICATOR ---- */
+    .step-indicator {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 28px;
+    }
+    .step-dot {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      border: 2px solid rgba(34,197,94,0.25);
+      color: rgba(134,239,172,0.4);
+      transition: all 0.2s;
+    }
+    .step-dot.active { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,0.1); }
+    .step-dot.done { border-color: #16a34a; background: #16a34a; color: #fff; }
+    .step-line { flex: 1; height: 2px; background: rgba(34,197,94,0.15); border-radius: 2px; }
+    .step-line.done { background: #22c55e; }
+    .step-label { font-size: 12px; color: rgba(134,239,172,0.5); white-space: nowrap; }
+    .step-label.active { color: #86efac; }
+
+    /* ---- ENGINE OPTION CARDS (modal) ---- */
+    .engine-grid-modal {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-bottom: 24px;
+    }
+    .engine-option {
+      background: rgba(0,0,0,0.4);
+      border: 2px solid rgba(34,197,94,0.12);
+      border-radius: 12px; padding: 16px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .engine-option:hover { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.04); }
+    .engine-option.selected {
+      border-color: #22c55e;
+      background: rgba(34,197,94,0.08);
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.2), 0 4px 16px rgba(34,197,94,0.1);
+    }
+    .eo-name { font-size: 18px; font-weight: 700; color: #f0fdf4; margin-bottom: 6px; }
+    .eo-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .eo-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+      letter-spacing: 0.04em;
+    }
+    .eo-badge-recommended { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+    .eo-badge-browser     { background: rgba(234,179,8,0.15);  color: #facc15; border: 1px solid rgba(234,179,8,0.3); }
+    .eo-badge-beta        { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+    .eo-desc { font-size: 12px; color: #86efac; line-height: 1.5; margin-bottom: 6px; }
+    .eo-mem  { font-size: 11px; color: rgba(134,239,172,0.5); font-family: 'DM Mono', monospace; }
+    .eo-check {
+      position: absolute; top: 10px; right: 10px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #22c55e;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: #fff;
+      opacity: 0; transform: scale(0.5);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .engine-option.selected .eo-check { opacity: 1; transform: scale(1); }
+
+    /* ---- SESSION NAME INPUT ---- */
+    .name-input-wrap { margin-bottom: 24px; }
+    .name-input-label { font-size: 12px; color: #86efac; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; display: block; }
+    .name-input {
+      width: 100%;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 10px;
+      color: #f0fdf4;
+      padding: 12px 16px;
+      font-size: 16px;
+      font-family: 'DM Mono', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .name-input:focus { border-color: rgba(34,197,94,0.6); }
+    .name-input.invalid { border-color: rgba(239,68,68,0.5); }
+    .name-input-hint { font-size: 12px; color: rgba(134,239,172,0.45); margin-top: 6px; }
+    .name-input-error { font-size: 12px; color: #f87171; margin-top: 6px; }
+
+    /* ---- WARNING BOX ---- */
+    .warning-box {
+      background: rgba(234,179,8,0.08);
+      border: 1px solid rgba(234,179,8,0.25);
+      border-radius: 10px; padding: 14px 16px;
+      font-size: 13px; color: #fde68a;
+      margin-bottom: 20px; line-height: 1.5;
+    }
+
+    /* ---- MODAL FOOTER ---- */
+    .modal-footer {
+      display: flex; gap: 10px; justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    /* ---- TOAST ---- */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: #16a34a; color: #fff;
+      padding: 13px 20px; border-radius: 12px;
+      font-size: 14px; font-weight: 600;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none; z-index: 999;
+      max-width: 340px; line-height: 1.4;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: #dc2626; }
+
+    /* ---- QR MODAL ---- */
+    .qr-modal-img {
+      display: block; margin: 0 auto 16px;
+      width: 280px; height: 280px;
+      border-radius: 12px;
+      border: 2px solid rgba(59,130,246,0.3);
+    }
+    .qr-modal-instruction {
+      text-align: center; font-size: 14px; color: #93c5fd;
+      line-height: 1.6; margin-bottom: 8px;
+    }
+    .qr-modal-timer { text-align: center; font-size: 12px; color: rgba(147,197,253,0.5); font-family: 'DM Mono', monospace; }
+
+    /* ---- CURRENT ENGINE LABEL ---- */
+    .current-engine-label {
+      font-size: 13px; color: #86efac;
+      margin-bottom: 16px;
+    }
+    .current-engine-label strong {
+      font-family: 'DM Mono', monospace;
+      color: #f0fdf4;
+    }
+
+    footer { text-align: center; padding: 40px 24px; color: rgba(134,239,172,0.35); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo">
+      <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+        <rect width="100" height="100" rx="20" fill="#16a34a"/>
+        <path d="M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z" fill="white"/>
+      </svg>
+      WAHA
+    </a>
+    <span class="nav-sep">/</span>
+    <span class="nav-title">Sessions Manager</span>
+    <a href="/dashboard/plus/" class="nav-back">← Plus Hub</a>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1>Sessions</h1>
+        <p class="subtitle">Manage your WhatsApp connections</p>
+      </div>
+      <button class="btn btn-primary" onclick="openNewSessionModal()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        New Session
+      </button>
+    </div>
+
+    <div class="sessions-grid" id="sessions-grid">
+      <!-- skeleton placeholders -->
+      <div class="skeleton-card">
+        <div class="skeleton-line" style="height:22px;width:55%;"></div>
+        <div class="skeleton-line" style="height:14px;width:30%;"></div>
+        <div class="skeleton-line" style="height:34px;width:100%;"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton-line" style="height:22px;width:45%;"></div>
+        <div class="skeleton-line" style="height:14px;width:25%;"></div>
+        <div class="skeleton-line" style="height:34px;width:100%;"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton-line" style="height:22px;width:60%;"></div>
+        <div class="skeleton-line" style="height:14px;width:35%;"></div>
+        <div class="skeleton-line" style="height:34px;width:100%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>WAHA Plus — Sessions Manager &nbsp;·&nbsp; WhatsApp HTTP API</footer>
+
+  <!-- ===== NEW SESSION MODAL ===== -->
+  <div class="modal-overlay" id="new-session-modal" onclick="handleOverlayClick(event, 'new-session-modal')">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="new-modal-title">New Session</span>
+        <button class="modal-close" onclick="closeModal('new-session-modal')">✕</button>
+      </div>
+
+      <!-- Step indicator -->
+      <div class="step-indicator">
+        <div class="step-dot active" id="step-dot-1">1</div>
+        <div class="step-label active" id="step-label-1">Choose Engine</div>
+        <div class="step-line" id="step-line-1"></div>
+        <div class="step-dot" id="step-dot-2">2</div>
+        <div class="step-label" id="step-label-2">Session Name</div>
+      </div>
+
+      <!-- Step 1: Engine selection -->
+      <div id="new-step-1">
+        <div class="engine-grid-modal">
+          <div class="engine-option selected" id="eo-NOWEB" onclick="selectNewEngine('NOWEB')">
+            <div class="eo-check">✓</div>
+            <div class="eo-name">NOWEB</div>
+            <div class="eo-badges">
+              <span class="eo-badge eo-badge-recommended">Recommended</span>
+            </div>
+            <div class="eo-desc">Pure Node.js, no browser needed. Best for production and multiple sessions.</div>
+            <div class="eo-mem">~50 MB / session</div>
+          </div>
+          <div class="engine-option" id="eo-WEBJS" onclick="selectNewEngine('WEBJS')">
+            <div class="eo-check">✓</div>
+            <div class="eo-name">WEBJS</div>
+            <div class="eo-badges">
+              <span class="eo-badge eo-badge-browser">Needs Browser</span>
+            </div>
+            <div class="eo-desc">Full whatsapp-web.js. Maximum feature compatibility via Chromium.</div>
+            <div class="eo-mem">~400 MB / session</div>
+          </div>
+          <div class="engine-option" id="eo-WPP" onclick="selectNewEngine('WPP')">
+            <div class="eo-check">✓</div>
+            <div class="eo-name">WPP</div>
+            <div class="eo-badges">
+              <span class="eo-badge eo-badge-browser">Needs Browser</span>
+            </div>
+            <div class="eo-desc">WPPConnect fork. Unique features not available in WEBJS.</div>
+            <div class="eo-mem">~420 MB / session</div>
+          </div>
+          <div class="engine-option" id="eo-GOWS" onclick="selectNewEngine('GOWS')">
+            <div class="eo-check">✓</div>
+            <div class="eo-name">GOWS</div>
+            <div class="eo-badges">
+              <span class="eo-badge eo-badge-beta">Beta</span>
+            </div>
+            <div class="eo-desc">Go-based implementation. Fastest startup, limited feature set.</div>
+            <div class="eo-mem">~30 MB / session</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('new-session-modal')">Cancel</button>
+          <button class="btn btn-primary" onclick="goToStep2()">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Session name -->
+      <div id="new-step-2" style="display:none;">
+        <div class="name-input-wrap">
+          <label class="name-input-label" for="new-session-name-input">Session Name</label>
+          <input
+            class="name-input"
+            id="new-session-name-input"
+            type="text"
+            placeholder="default"
+            autocomplete="off"
+            spellcheck="false"
+            oninput="validateSessionName()"
+            onkeydown="if(event.key==='Enter') confirmCreateSession()"
+          />
+          <div class="name-input-hint" id="new-name-hint">Alphanumeric, dashes and underscores only</div>
+          <div class="name-input-error" id="new-name-error" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="goToStep1()">← Back</button>
+          <button class="btn btn-primary" id="create-session-btn" onclick="confirmCreateSession()" disabled>
+            Create Session
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SWITCH ENGINE MODAL ===== -->
+  <div class="modal-overlay" id="switch-engine-modal" onclick="handleOverlayClick(event, 'switch-engine-modal')">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Switch Engine</span>
+        <button class="modal-close" onclick="closeModal('switch-engine-modal')">✕</button>
+      </div>
+      <div class="current-engine-label">
+        Current engine: <strong id="switch-current-engine">—</strong>
+      </div>
+      <div class="warning-box">
+        ⚠️ The session will restart and may need to re-authenticate (scan QR again).
+      </div>
+      <div class="engine-grid-modal" id="switch-engine-grid">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('switch-engine-modal')">Cancel</button>
+        <button class="btn btn-primary" id="switch-engine-btn" onclick="confirmSwitchEngine()">Switch Engine</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== QR CODE MODAL ===== -->
+  <div class="modal-overlay" id="qr-modal" onclick="handleOverlayClick(event, 'qr-modal')">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Scan QR Code</span>
+        <button class="modal-close" onclick="closeQrModal()">✕</button>
+      </div>
+      <img class="qr-modal-img" id="qr-modal-img" src="" alt="QR Code" />
+      <p class="qr-modal-instruction">
+        Open WhatsApp on your phone<br>
+        Go to <strong>Linked Devices → Link a Device</strong><br>
+        Point your camera at this QR code
+      </p>
+      <p class="qr-modal-timer" id="qr-modal-timer">Refreshes in 15s</p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeQrModal()">Close</button>
+        <button class="btn btn-secondary" onclick="fetchQr()">Refresh Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DELETE CONFIRM MODAL ===== -->
+  <div class="modal-overlay" id="delete-modal" onclick="handleOverlayClick(event, 'delete-modal')">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Delete Session</span>
+        <button class="modal-close" onclick="closeModal('delete-modal')">✕</button>
+      </div>
+      <p style="font-size:14px;color:#86efac;margin-bottom:20px;line-height:1.6;">
+        Are you sure you want to delete session <strong id="delete-session-name-label" style="font-family:'DM Mono',monospace;color:#f0fdf4;"></strong>?<br>
+        This will stop the session and remove all associated data.
+      </p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('delete-modal')">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Delete Session</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ===== STATE =====
+    let apiKey = '';
+    let sessions = [];
+    let pollTimer = null;
+
+    // new session modal state
+    let newEngine = 'NOWEB';
+    let newSessionStep = 1;
+
+    // switch engine modal state
+    let switchTargetSession = '';
+    let switchCurrentEng = '';
+    let switchNewEng = '';
+
+    // delete modal state
+    let deleteTargetSession = '';
+
+    // QR modal state
+    let qrSession = '';
+    let qrRefreshTimer = null;
+    let qrCountdown = 15;
+
+    // ===== INIT =====
+    async function init() {
+      try {
+        const r = await fetch('/api/dashboard/config');
+        const d = await r.json();
+        apiKey = d.apiKey || '';
+      } catch {}
+      await loadSessions();
+      startPolling();
+    }
+
+    function headers() {
+      return { 'Content-Type': 'application/json', 'X-Api-Key': apiKey };
+    }
+
+    // ===== SESSIONS LOADING =====
+    async function loadSessions(silent = false) {
+      try {
+        const r = await fetch('/api/sessions?all=true', { headers: { 'X-Api-Key': apiKey } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        sessions = Array.isArray(data) ? data : [];
+        renderSessions();
+      } catch (err) {
+        if (!silent) {
+          document.getElementById('sessions-grid').innerHTML = renderEmptyState();
+        }
+      }
+    }
+
+    function startPolling() {
+      pollTimer = setInterval(() => loadSessions(true), 5000);
+    }
+
+    // ===== RENDER =====
+    function renderSessions() {
+      const grid = document.getElementById('sessions-grid');
+      if (sessions.length === 0) {
+        grid.innerHTML = renderEmptyState();
+        return;
+      }
+
+      grid.innerHTML = sessions.map((s, i) => renderSessionCard(s, i)).join('');
+
+      // Trigger fade-in with stagger
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.session-card').forEach((card, i) => {
+          setTimeout(() => card.classList.add('visible'), i * 60);
+        });
+      });
+    }
+
+    function statusBadgeClass(status) {
+      const map = {
+        WORKING: 'badge-working',
+        STARTING: 'badge-starting',
+        SCAN_QR_CODE: 'badge-scan_qr_code',
+        STOPPED: 'badge-stopped',
+        FAILED: 'badge-failed',
+      };
+      return map[status] || 'badge-stopped';
+    }
+
+    function engineClass(engine) {
+      const e = (engine || 'NOWEB').toUpperCase();
+      return 'engine-' + e;
+    }
+
+    function renderSessionCard(s, i) {
+      const status = (s.status || 'STOPPED').toUpperCase();
+      const engine = (s.engine || 'NOWEB').toUpperCase();
+      const isStopped  = status === 'STOPPED' || status === 'FAILED';
+      const isRunning  = status === 'WORKING' || status === 'STARTING';
+      const isScanQr   = status === 'SCAN_QR_CODE';
+
+      const startBtn = isStopped
+        ? `<button class="btn btn-secondary btn-sm" onclick="startSession('${s.name}')">▶ Start</button>`
+        : '';
+      const stopBtn = (isRunning || isScanQr)
+        ? `<button class="btn btn-ghost btn-sm" onclick="stopSession('${s.name}')">⏹ Stop</button>`
+        : '';
+      const qrBtn = isScanQr
+        ? `<button class="btn btn-ghost btn-sm" onclick="openQrModal('${s.name}')" style="color:#60a5fa;border-color:rgba(59,130,246,0.3);">📷 Show QR</button>`
+        : '';
+      const switchBtn = `<button class="btn btn-ghost btn-sm" onclick="openSwitchEngine('${s.name}','${engine}')">🔄 Switch Engine</button>`;
+      const deleteBtn = `<button class="btn btn-danger btn-sm" onclick="openDeleteModal('${s.name}')">🗑 Delete</button>`;
+
+      const statusLabel = status === 'SCAN_QR_CODE' ? 'SCAN QR' : status;
+
+      return `
+        <div class="session-card" id="card-${s.name}" data-session="${s.name}">
+          <div class="card-top">
+            <span class="session-name">${escHtml(s.name)}</span>
+            <span class="badge ${statusBadgeClass(status)}">
+              <span class="badge-dot"></span>
+              ${statusLabel}
+            </span>
+          </div>
+          <div class="card-meta">
+            <span class="engine-pill ${engineClass(engine)}">${engine}</span>
+          </div>
+          <div class="card-actions">
+            ${startBtn}${stopBtn}${qrBtn}${switchBtn}${deleteBtn}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderEmptyState() {
+      return `
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="56" height="56" viewBox="0 0 100 100" fill="none">
+              <rect width="100" height="100" rx="20" fill="rgba(34,197,94,0.1)"/>
+              <path d="M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z" fill="rgba(34,197,94,0.4)"/>
+            </svg>
+          </div>
+          <div class="empty-title">No sessions yet</div>
+          <div class="empty-desc">Create your first WhatsApp session to get started.</div>
+          <button class="btn btn-primary" onclick="openNewSessionModal()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+            Create Session
+          </button>
+        </div>
+      `;
+    }
+
+    // ===== SESSION ACTIONS =====
+    async function startSession(name) {
+      try {
+        const r = await fetch(`/api/sessions/${name}/start`, { method: 'POST', headers: headers() });
+        if (!r.ok) throw new Error(await r.text());
+        flashCard(name, 'success');
+        showToast(`Session "${name}" is starting...`);
+        await loadSessions(true);
+      } catch (err) {
+        flashCard(name, 'error');
+        showToast(`Failed to start "${name}": ${extractError(err)}`, true);
+      }
+    }
+
+    async function stopSession(name) {
+      try {
+        const r = await fetch(`/api/sessions/${name}/stop`, { method: 'POST', headers: headers() });
+        if (!r.ok) throw new Error(await r.text());
+        flashCard(name, 'success');
+        showToast(`Session "${name}" stopped.`);
+        await loadSessions(true);
+      } catch (err) {
+        flashCard(name, 'error');
+        showToast(`Failed to stop "${name}": ${extractError(err)}`, true);
+      }
+    }
+
+    // ===== NEW SESSION MODAL =====
+    function openNewSessionModal() {
+      newSessionStep = 1;
+      newEngine = 'NOWEB';
+      document.getElementById('new-session-name-input').value = '';
+      document.getElementById('new-name-error').style.display = 'none';
+      document.getElementById('new-name-hint').style.display = 'block';
+      document.getElementById('create-session-btn').disabled = true;
+      setStep(1);
+      selectNewEngine('NOWEB');
+      openModal('new-session-modal');
+    }
+
+    function selectNewEngine(eng) {
+      newEngine = eng;
+      ['NOWEB','WEBJS','WPP','GOWS'].forEach(e => {
+        document.getElementById('eo-' + e).classList.toggle('selected', e === eng);
+      });
+    }
+
+    function goToStep2() {
+      setStep(2);
+      setTimeout(() => document.getElementById('new-session-name-input').focus(), 80);
+    }
+
+    function goToStep1() {
+      setStep(1);
+    }
+
+    function setStep(step) {
+      newSessionStep = step;
+      document.getElementById('new-step-1').style.display = step === 1 ? 'block' : 'none';
+      document.getElementById('new-step-2').style.display = step === 2 ? 'block' : 'none';
+
+      // Update step dots
+      const dot1 = document.getElementById('step-dot-1');
+      const dot2 = document.getElementById('step-dot-2');
+      const line1 = document.getElementById('step-line-1');
+      const lbl1  = document.getElementById('step-label-1');
+      const lbl2  = document.getElementById('step-label-2');
+
+      if (step === 1) {
+        dot1.className = 'step-dot active'; dot1.textContent = '1';
+        dot2.className = 'step-dot'; dot2.textContent = '2';
+        line1.className = 'step-line';
+        lbl1.className  = 'step-label active';
+        lbl2.className  = 'step-label';
+      } else {
+        dot1.className = 'step-dot done'; dot1.textContent = '✓';
+        dot2.className = 'step-dot active'; dot2.textContent = '2';
+        line1.className = 'step-line done';
+        lbl1.className  = 'step-label';
+        lbl2.className  = 'step-label active';
+      }
+    }
+
+    function validateSessionName() {
+      const val = document.getElementById('new-session-name-input').value;
+      const input = document.getElementById('new-session-name-input');
+      const hint = document.getElementById('new-name-hint');
+      const errEl = document.getElementById('new-name-error');
+      const btn = document.getElementById('create-session-btn');
+
+      if (!val) {
+        input.classList.remove('invalid');
+        errEl.style.display = 'none';
+        hint.style.display = 'block';
+        btn.disabled = true;
+        return;
+      }
+
+      const valid = /^[a-zA-Z0-9_-]+$/.test(val);
+      input.classList.toggle('invalid', !valid);
+      if (!valid) {
+        errEl.textContent = 'Only letters, numbers, dashes (-) and underscores (_) allowed.';
+        errEl.style.display = 'block';
+        hint.style.display = 'none';
+        btn.disabled = true;
+      } else {
+        errEl.style.display = 'none';
+        hint.style.display = 'block';
+        btn.disabled = false;
+      }
+    }
+
+    async function confirmCreateSession() {
+      const name = document.getElementById('new-session-name-input').value.trim();
+      if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) return;
+      const btn = document.getElementById('create-session-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      try {
+        const r = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ name, config: { engine: newEngine }, start: true }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        closeModal('new-session-modal');
+        showToast(`Session "${name}" created!`);
+        await loadSessions(true);
+        setTimeout(() => flashCard(name, 'success'), 100);
+      } catch (err) {
+        showToast(`Failed to create session: ${extractError(err)}`, true);
+        btn.disabled = false;
+        btn.textContent = 'Create Session';
+      }
+    }
+
+    // ===== SWITCH ENGINE MODAL =====
+    function openSwitchEngine(name, currentEngine) {
+      switchTargetSession = name;
+      switchCurrentEng = currentEngine;
+      switchNewEng = currentEngine;
+
+      document.getElementById('switch-current-engine').textContent = currentEngine;
+
+      const ENGINES = [
+        { id: 'NOWEB', desc: 'Pure Node.js, no browser required.', mem: '~50 MB / session', badges: ['Recommended'] },
+        { id: 'WEBJS', desc: 'Full whatsapp-web.js with Chromium.', mem: '~400 MB / session', badges: ['Needs Browser'] },
+        { id: 'WPP',   desc: 'WPPConnect fork with unique features.', mem: '~420 MB / session', badges: ['Needs Browser'] },
+        { id: 'GOWS',  desc: 'Go-based, fastest startup, limited features.', mem: '~30 MB / session', badges: ['Beta'] },
+      ];
+
+      const badgeClass = { 'Recommended': 'eo-badge-recommended', 'Needs Browser': 'eo-badge-browser', 'Beta': 'eo-badge-beta' };
+
+      document.getElementById('switch-engine-grid').innerHTML = ENGINES.map(e => `
+        <div class="engine-option${e.id === currentEngine ? ' selected' : ''}" id="seo-${e.id}" onclick="selectSwitchEngine('${e.id}')">
+          <div class="eo-check">✓</div>
+          <div class="eo-name">${e.id}</div>
+          <div class="eo-badges">${e.badges.map(b => `<span class="eo-badge ${badgeClass[b]}">${b}</span>`).join('')}</div>
+          <div class="eo-desc">${e.desc}</div>
+          <div class="eo-mem">${e.mem}</div>
+        </div>
+      `).join('');
+
+      openModal('switch-engine-modal');
+    }
+
+    function selectSwitchEngine(eng) {
+      switchNewEng = eng;
+      ['NOWEB','WEBJS','WPP','GOWS'].forEach(e => {
+        const el = document.getElementById('seo-' + e);
+        if (el) el.classList.toggle('selected', e === eng);
+      });
+    }
+
+    async function confirmSwitchEngine() {
+      if (!switchTargetSession) return;
+      const btn = document.getElementById('switch-engine-btn');
+      btn.disabled = true; btn.textContent = 'Switching...';
+      try {
+        const r = await fetch(`/api/sessions/${switchTargetSession}/switch-engine`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ engine: switchNewEng }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        closeModal('switch-engine-modal');
+        showToast(`Engine switched to ${switchNewEng}`);
+        await loadSessions(true);
+        setTimeout(() => flashCard(switchTargetSession, 'success'), 100);
+      } catch (err) {
+        showToast(`Failed to switch engine: ${extractError(err)}`, true);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Switch Engine';
+      }
+    }
+
+    // ===== DELETE MODAL =====
+    function openDeleteModal(name) {
+      deleteTargetSession = name;
+      document.getElementById('delete-session-name-label').textContent = name;
+      openModal('delete-modal');
+    }
+
+    async function confirmDelete() {
+      if (!deleteTargetSession) return;
+      const btn = document.querySelector('#delete-modal .btn-danger');
+      btn.disabled = true; btn.textContent = 'Deleting...';
+      try {
+        const r = await fetch(`/api/sessions/${deleteTargetSession}`, {
+          method: 'DELETE',
+          headers: headers(),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        closeModal('delete-modal');
+        showToast(`Session "${deleteTargetSession}" deleted.`);
+        await loadSessions(true);
+      } catch (err) {
+        showToast(`Failed to delete: ${extractError(err)}`, true);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Delete Session';
+      }
+    }
+
+    // ===== QR CODE MODAL =====
+    function openQrModal(name) {
+      qrSession = name;
+      qrCountdown = 15;
+      clearInterval(qrRefreshTimer);
+      document.getElementById('qr-modal-img').src = '';
+      openModal('qr-modal');
+      fetchQr();
+      startQrTimer();
+    }
+
+    async function fetchQr() {
+      if (!qrSession) return;
+      const img = document.getElementById('qr-modal-img');
+      try {
+        const url = `/api/${qrSession}/auth/qr?format=image`;
+        // Append timestamp to bust cache
+        img.src = url + '&_t=' + Date.now() + '&apikey=' + encodeURIComponent(apiKey);
+        // Check if session is now WORKING
+        const sIdx = sessions.findIndex(s => s.name === qrSession);
+        if (sIdx >= 0 && sessions[sIdx].status === 'WORKING') {
+          document.getElementById('qr-modal-timer').textContent = '✓ Session is now connected!';
+        }
+      } catch {}
+    }
+
+    function startQrTimer() {
+      clearInterval(qrRefreshTimer);
+      qrCountdown = 15;
+      qrRefreshTimer = setInterval(() => {
+        qrCountdown--;
+        const timerEl = document.getElementById('qr-modal-timer');
+        if (timerEl) timerEl.textContent = `Refreshes in ${qrCountdown}s`;
+        if (qrCountdown <= 0) {
+          qrCountdown = 15;
+          fetchQr();
+        }
+      }, 1000);
+    }
+
+    function closeQrModal() {
+      clearInterval(qrRefreshTimer);
+      qrSession = '';
+      closeModal('qr-modal');
+    }
+
+    // ===== MODAL HELPERS =====
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function handleOverlayClick(e, id) {
+      if (e.target === document.getElementById(id)) {
+        if (id === 'qr-modal') closeQrModal();
+        else closeModal(id);
+      }
+    }
+
+    // ===== VISUAL FEEDBACK =====
+    function flashCard(name, type) {
+      const card = document.getElementById('card-' + name);
+      if (!card) return;
+      card.classList.remove('flash-success', 'flash-error');
+      void card.offsetWidth; // reflow
+      card.classList.add(type === 'success' ? 'flash-success' : 'flash-error');
+    }
+
+    // ===== TOAST =====
+    let toastTimer = null;
+    function showToast(msg, isError = false) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast' + (isError ? ' error' : '');
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 3800);
+    }
+
+    // ===== UTILS =====
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function extractError(err) {
+      try {
+        const d = JSON.parse(err.message);
+        return d.message || err.message;
+      } catch {
+        return err.message || 'Unknown error';
+      }
+    }
+
+    // ===== START =====
+    init();
+  </script>
+</body>
+</html>
