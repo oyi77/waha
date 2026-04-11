@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
 import Knex from 'knex';
@@ -69,18 +69,23 @@ function matchesRule(rule: AutoReplyRule, text: string): boolean {
 }
 
 @Injectable()
-export class AutoReplyService implements OnModuleInit {
-  private knex: Knex.Knex;
+export class AutoReplyService {
+  private _knex: Knex.Knex | null = null;
+  private _migrated = false;
 
   constructor(private manager: SessionManager) {}
 
-  async onModuleInit() {
-    this.knex = this.manager.store.getWAHADatabase();
-    await this.knex.transaction(async (trx) => {
-      for (const sql of MIGRATIONS) {
-        await trx.raw(sql);
-      }
-    });
+  private async db(): Promise<Knex.Knex> {
+    if (!this._knex) {
+      this._knex = this.manager.store.getWAHADatabase();
+    }
+    if (!this._migrated) {
+      this._migrated = true;
+      await this._knex.transaction(async (trx) => {
+        for (const sql of MIGRATIONS) await trx.raw(sql);
+      });
+    }
+    return this._knex;
   }
 
   async create(dto: {
@@ -90,6 +95,7 @@ export class AutoReplyService implements OnModuleInit {
     replyText: string;
     isActive?: boolean;
   }): Promise<AutoReplyRule> {
+    const knex = await this.db();
     const id = generatePrefixedId('rule');
     const row: AutoReplyRow = {
       id,
@@ -100,12 +106,13 @@ export class AutoReplyService implements OnModuleInit {
       isActive: dto.isActive === false ? 0 : 1,
       createdAt: Date.now(),
     };
-    await this.knex(TABLE).insert(row);
+    await knex(TABLE).insert(row);
     return rowToRule(row);
   }
 
   async list(session?: string): Promise<AutoReplyRule[]> {
-    let query = this.knex(TABLE).select('*').orderBy('createdAt', 'asc');
+    const knex = await this.db();
+    let query = knex(TABLE).select('*').orderBy('createdAt', 'asc');
     if (session) {
       query = query.where({ session });
     }
@@ -114,7 +121,8 @@ export class AutoReplyService implements OnModuleInit {
   }
 
   async get(id: string): Promise<AutoReplyRule | null> {
-    const row: AutoReplyRow | undefined = await this.knex(TABLE).where({ id }).first();
+    const knex = await this.db();
+    const row: AutoReplyRow | undefined = await knex(TABLE).where({ id }).first();
     return row ? rowToRule(row) : null;
   }
 
@@ -127,18 +135,20 @@ export class AutoReplyService implements OnModuleInit {
       isActive: boolean;
     }>,
   ): Promise<AutoReplyRule | null> {
+    const knex = await this.db();
     const updates: Partial<AutoReplyRow> = {};
     if (dto.keyword !== undefined) updates.keyword = dto.keyword;
     if (dto.matchType !== undefined) updates.matchType = dto.matchType;
     if (dto.replyText !== undefined) updates.replyText = dto.replyText;
     if (dto.isActive !== undefined) updates.isActive = dto.isActive ? 1 : 0;
 
-    await this.knex(TABLE).where({ id }).update(updates);
+    await knex(TABLE).where({ id }).update(updates);
     return this.get(id);
   }
 
   async delete(id: string): Promise<void> {
-    await this.knex(TABLE).where({ id }).delete();
+    const knex = await this.db();
+    await knex(TABLE).where({ id }).delete();
   }
 
   async processIncomingMessage(

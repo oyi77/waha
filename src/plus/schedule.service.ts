@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
 import Knex from 'knex';
@@ -62,24 +62,25 @@ function rowToMessage(row: ScheduledRow): ScheduledMessage {
 }
 
 @Injectable()
-export class ScheduleService implements OnModuleInit {
+export class ScheduleService {
   private readonly logger = new Logger(ScheduleService.name);
-  private knex: Knex.Knex;
+  private _knex: Knex.Knex | null = null;
+  private _migrated = false;
 
   constructor(private manager: SessionManager) {}
 
-  async onModuleInit() {
-    this.knex = this.manager.store.getWAHADatabase();
-    await this.init();
-  }
-
-  async init() {
-    await this.knex.transaction(async (trx) => {
-      for (const sql of MIGRATIONS) {
-        await trx.raw(sql);
-      }
-    });
-    this.startRunner();
+  private async db(): Promise<Knex.Knex> {
+    if (!this._knex) {
+      this._knex = this.manager.store.getWAHADatabase();
+    }
+    if (!this._migrated) {
+      this._migrated = true;
+      await this._knex.transaction(async (trx) => {
+        for (const sql of MIGRATIONS) await trx.raw(sql);
+      });
+      this.startRunner();
+    }
+    return this._knex;
   }
 
   private startRunner() {
@@ -87,8 +88,9 @@ export class ScheduleService implements OnModuleInit {
   }
 
   private async runPending() {
+    const knex = await this.db();
     const now = Date.now();
-    const rows: ScheduledRow[] = await this.knex(TABLE)
+    const rows: ScheduledRow[] = await knex(TABLE)
       .where({ status: 'pending' })
       .where('scheduledAt', '<=', now)
       .select('*');
@@ -119,13 +121,13 @@ export class ScheduleService implements OnModuleInit {
             throw new Error(`Unknown message type: ${msg.type}`);
         }
 
-        await this.knex(TABLE).where({ id: msg.id }).update({
+        await knex(TABLE).where({ id: msg.id }).update({
           status: 'sent',
           sentAt: Date.now(),
         });
         this.logger.log(`Scheduled message ${msg.id} sent`);
       } catch (err: any) {
-        await this.knex(TABLE).where({ id: msg.id }).update({
+        await knex(TABLE).where({ id: msg.id }).update({
           status: 'failed',
           error: err?.message ?? String(err),
         });
@@ -141,6 +143,7 @@ export class ScheduleService implements OnModuleInit {
     payload: Record<string, any>;
     scheduledAt: string;
   }): Promise<ScheduledMessage> {
+    const knex = await this.db();
     const id = generatePrefixedId('sched');
     const now = Date.now();
     const scheduledAt = new Date(dto.scheduledAt).getTime();
@@ -158,12 +161,13 @@ export class ScheduleService implements OnModuleInit {
       error: null,
     };
 
-    await this.knex(TABLE).insert(row);
+    await knex(TABLE).insert(row);
     return rowToMessage(row);
   }
 
   async list(session?: string): Promise<ScheduledMessage[]> {
-    let query = this.knex(TABLE).select('*').orderBy('scheduledAt', 'asc');
+    const knex = await this.db();
+    let query = knex(TABLE).select('*').orderBy('scheduledAt', 'asc');
     if (session) {
       query = query.where({ session });
     }
@@ -172,11 +176,13 @@ export class ScheduleService implements OnModuleInit {
   }
 
   async get(id: string): Promise<ScheduledMessage | null> {
-    const row: ScheduledRow | undefined = await this.knex(TABLE).where({ id }).first();
+    const knex = await this.db();
+    const row: ScheduledRow | undefined = await knex(TABLE).where({ id }).first();
     return row ? rowToMessage(row) : null;
   }
 
   async cancel(id: string): Promise<void> {
-    await this.knex(TABLE).where({ id }).update({ status: 'cancelled' });
+    const knex = await this.db();
+    await knex(TABLE).where({ id }).update({ status: 'cancelled' });
   }
 }
