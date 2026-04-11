@@ -43,7 +43,7 @@ export class CoreApiKeyRepository implements IApiKeyRepository {
     );
   }
 
-  async deleteBySession(session: string): Promise<void> {
+  async deleteBySession(session: string | null): Promise<void> {
     void session;
     throw new UnprocessableEntityException(
       `API key management is not available in this edition. See ${DOCS_URL}`,

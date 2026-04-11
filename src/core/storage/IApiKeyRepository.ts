@@ -26,7 +26,7 @@ export interface IApiKeyRepository {
 
   deleteById(id: string): Promise<void>;
 
-  deleteBySession(session: string): Promise<void>;
+  deleteBySession(session: string | null): Promise<void>;
 }
 
 export function CheckInvariant(

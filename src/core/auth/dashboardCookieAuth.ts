@@ -1,6 +1,25 @@
 import * as crypto from 'crypto';
+import { NextFunction, Request, Response } from 'express';
 
-function parseCookies(header: string): Record<string, string> {
+// Per-process ephemeral secret for development (never used in production).
+const _ephemeralSecret = crypto.randomBytes(32).toString('hex');
+
+// Dashboard HMAC signing secret — resolved once at module load.
+const _dashboardSecret: string = (() => {
+  const s = process.env.WAHA_DASHBOARD_SECRET;
+  if (!s) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'WAHA_DASHBOARD_SECRET environment variable must be set in production',
+      );
+    }
+    // Development fallback: ephemeral random secret, invalidated on restart.
+    return _ephemeralSecret;
+  }
+  return s;
+})();
+
+export function parseCookies(header: string): Record<string, string> {
   const result: Record<string, string> = {};
   for (const pair of (header || '').split(';')) {
     const idx = pair.indexOf('=');
@@ -22,11 +41,24 @@ function parseBasicAuth(header: string): [string, string] | null {
   }
 }
 
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Always runs in O(max(a.length, b.length)) regardless of where strings differ.
+ */
+export function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ab.length !== bb.length) {
+    // Run a dummy compare on equal-length buffers to normalise timing.
+    crypto.timingSafeEqual(ab, ab);
+    return false;
+  }
+  return crypto.timingSafeEqual(ab, bb);
+}
+
 export function makeAuthToken(username: string, password: string): string {
-  const secret =
-    process.env.WAHA_DASHBOARD_SECRET || 'waha-dashboard-hmac-secret-v1';
   return crypto
-    .createHmac('sha256', secret)
+    .createHmac('sha256', _dashboardSecret)
     .update(`${username}:${password}`)
     .digest('hex');
 }
@@ -37,7 +69,7 @@ export function makeAuthToken(username: string, password: string): string {
  * - Accepts a valid waha-auth cookie (browser login flow).
  * - Accepts HTTP Basic Auth credentials as a fallback (API / programmatic access).
  * - Browser clients (Accept: text/html) without any auth are redirected to the login page.
- * - Non-browser clients without auth receive 401.
+ * - Non-browser clients without auth receive 401 with WWW-Authenticate header.
  */
 export function DashboardCookieAuthFunction(
   username: string,
@@ -45,40 +77,45 @@ export function DashboardCookieAuthFunction(
 ) {
   const validToken = makeAuthToken(username, password);
 
-  return function dashboardCookieAuth(req: any, res: any, next: () => void) {
-    // Use originalUrl (full path) because NestJS forRoutes() strips the prefix from req.url
+  return function dashboardCookieAuth(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    // Use originalUrl (full path) because NestJS forRoutes() strips the prefix from req.url.
     const url: string = req.originalUrl || req.url || '';
+    // Strip query string before comparing to avoid bypass via encoding tricks.
+    const path = url.split('?')[0];
 
-    // Allow the login page through without auth
-    if (
-      url === '/dashboard/login.html' ||
-      url.startsWith('/dashboard/login.html?')
-    ) {
+    // Allow the login page through without auth.
+    if (path === '/dashboard/login.html') {
       return next();
     }
 
-    // Check waha-auth cookie (browser login flow)
+    // Check waha-auth cookie (browser login flow).
     const cookies = parseCookies(req.headers.cookie || '');
-    if (cookies['waha-auth'] === validToken) {
+    if (safeEqual(cookies['waha-auth'] || '', validToken)) {
       return next();
     }
 
-    // Check HTTP Basic Auth (API / programmatic access)
+    // Check HTTP Basic Auth (API / programmatic access).
     const basicCreds = parseBasicAuth(req.headers.authorization || '');
     if (basicCreds) {
       const [u, p] = basicCreds;
-      if (u === username && p === password) {
+      if (safeEqual(u, username) && safeEqual(p, password)) {
         return next();
       }
-      // Wrong credentials supplied explicitly — always 401
+      // Wrong credentials supplied explicitly — always 401.
+      res.set('WWW-Authenticate', 'Basic realm="waha"');
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    // No credentials at all: redirect browsers, return 401 for API clients
+    // No credentials at all: redirect browsers, return 401 for API clients.
     const accept: string = req.headers.accept || '';
     if (accept.includes('text/html')) {
       return res.redirect('/dashboard/login.html');
     }
+    res.set('WWW-Authenticate', 'Basic realm="waha"');
     return res.status(401).json({ message: 'Unauthorized' });
   };
 }
