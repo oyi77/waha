@@ -53,11 +53,10 @@ function rowToTemplate(row: TemplateRow): MessageTemplate {
 export class TemplatesService implements OnModuleInit {
   private knex: Knex.Knex;
 
-  constructor(private manager: SessionManager) {
-    this.knex = manager.store.getWAHADatabase();
-  }
+  constructor(private manager: SessionManager) {}
 
   async onModuleInit() {
+    this.knex = this.manager.store.getWAHADatabase();
     await this.knex.transaction(async (trx) => {
       for (const sql of MIGRATIONS) {
         await trx.raw(sql);

@@ -66,11 +66,10 @@ export class ScheduleService implements OnModuleInit {
   private readonly logger = new Logger(ScheduleService.name);
   private knex: Knex.Knex;
 
-  constructor(private manager: SessionManager) {
-    this.knex = manager.store.getWAHADatabase();
-  }
+  constructor(private manager: SessionManager) {}
 
   async onModuleInit() {
+    this.knex = this.manager.store.getWAHADatabase();
     await this.init();
   }
 
