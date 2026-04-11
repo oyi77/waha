@@ -1774,7 +1774,7 @@
     const btn = document.getElementById('logoutBtn');
     btn.style.opacity = '0.5';
     try {
-      await fetch('/api/dashboard/logout', { credentials: 'same-origin' });
+      await fetch('/api/dashboard/logout', { method: 'POST', credentials: 'same-origin' });
     } catch {}
     window.location.href = '/dashboard/login.html';
   }

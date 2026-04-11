@@ -43,9 +43,11 @@ export class Sqlite3ApiKeyRepository implements IApiKeyRepository {
   }
 
   async init(): Promise<void> {
-    for (const sql of SQLApiKeyMigrations) {
-      await this.knex.raw(sql);
-    }
+    await this.knex.transaction(async (trx) => {
+      for (const sql of SQLApiKeyMigrations) {
+        await trx.raw(sql);
+      }
+    });
   }
 
   async list(): Promise<ApiKey[]> {
@@ -59,7 +61,9 @@ export class Sqlite3ApiKeyRepository implements IApiKeyRepository {
       .insert(row)
       .onConflict('id')
       .merge();
-    return key;
+    // Return the persisted row rather than echoing the input.
+    const persisted = await this.getById(key.id);
+    return persisted ?? key;
   }
 
   async getActiveByKey(key: string): Promise<ApiKey | null> {
@@ -87,7 +91,11 @@ export class Sqlite3ApiKeyRepository implements IApiKeyRepository {
     await this.knex(TABLE).where({ id }).delete();
   }
 
-  async deleteBySession(session: string): Promise<void> {
-    await this.knex(TABLE).where({ session }).delete();
+  async deleteBySession(session: string | null): Promise<void> {
+    if (session === null) {
+      await this.knex(TABLE).whereNull('session').delete();
+    } else {
+      await this.knex(TABLE).where({ session }).delete();
+    }
   }
 }

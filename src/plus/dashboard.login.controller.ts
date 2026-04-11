@@ -1,7 +1,11 @@
 import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { DashboardConfigServiceCore } from '@waha/core/config/DashboardConfigServiceCore';
-import { makeAuthToken } from '@waha/core/auth/dashboardCookieAuth';
+import {
+  makeAuthToken,
+  parseCookies,
+  safeEqual,
+} from '@waha/core/auth/dashboardCookieAuth';
 import { Auth } from '@waha/core/auth/config';
 import { Request, Response } from 'express';
 
@@ -11,6 +15,14 @@ class LoginBody {
 
   @ApiProperty({ required: true })
   password: string;
+}
+
+function isSecureRequest(req: Request): boolean {
+  return (
+    req.secure ||
+    req.headers['x-forwarded-proto'] === 'https' ||
+    process.env.NODE_ENV === 'production'
+  );
 }
 
 @Controller('api/dashboard')
@@ -24,14 +36,14 @@ export class DashboardLoginController {
     description:
       'Validates username/password and sets waha-auth session cookie. No API key required.',
   })
-  login(@Body() body: LoginBody, @Res() res: Response) {
+  login(@Body() body: LoginBody, @Req() req: Request, @Res() res: Response) {
     const credentials = this.dashboardConfig.credentials;
     if (!credentials) {
       return res.json({ success: true, message: 'No auth configured' });
     }
 
     const [username, password] = credentials;
-    if (body.username !== username || body.password !== password) {
+    if (!safeEqual(body.username || '', username) || !safeEqual(body.password || '', password)) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
@@ -39,19 +51,25 @@ export class DashboardLoginController {
     res.cookie('waha-auth', token, {
       httpOnly: true,
       sameSite: 'strict',
+      secure: isSecureRequest(req),
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
     return res.json({ success: true });
   }
 
-  @Get('logout')
+  @Post('logout')
   @ApiOperation({
     summary: 'Dashboard logout',
     description: 'Clears the waha-auth session cookie.',
   })
-  logout(@Res() res: Response) {
-    res.clearCookie('waha-auth', { path: '/' });
+  logout(@Req() req: Request, @Res() res: Response) {
+    res.clearCookie('waha-auth', {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: isSecureRequest(req),
+    });
     return res.json({ success: true });
   }
 
@@ -65,18 +83,13 @@ export class DashboardLoginController {
   getConfig(@Req() req: Request, @Res() res: Response) {
     const credentials = this.dashboardConfig.credentials;
 
-    // Verify waha-auth cookie when credentials are configured
+    // Verify waha-auth cookie when credentials are configured.
+    // If no credentials are configured, the instance is expected to be private; expose the key unconditionally.
     if (credentials) {
       const [username, password] = credentials;
       const validToken = makeAuthToken(username, password);
-      const cookieHeader: string = (req.headers.cookie as string) || '';
-      const cookies: Record<string, string> = {};
-      for (const pair of cookieHeader.split(';')) {
-        const idx = pair.indexOf('=');
-        if (idx < 0) continue;
-        cookies[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
-      }
-      if (cookies['waha-auth'] !== validToken) {
+      const cookies = parseCookies(req.headers.cookie || '');
+      if (!safeEqual(cookies['waha-auth'] || '', validToken)) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
     }
