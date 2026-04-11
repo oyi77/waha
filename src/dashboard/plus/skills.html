@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WAHA Plus — Claude Skills</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2316a34a'/><path d='M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z' fill='white'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #080c0a; color: #e2e8e0; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+    .nav { background: rgba(12,20,15,0.95); border-bottom: 1px solid rgba(34,197,94,0.15); padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 56px; position: sticky; top: 0; z-index: 100; }
+    .nav-logo { font-size: 18px; font-weight: 700; color: #22c55e; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+    .nav-sep { color: rgba(34,197,94,0.3); }
+    .nav-title { font-size: 14px; color: #86efac; }
+    .nav-back { margin-left: auto; font-size: 13px; color: #86efac; text-decoration: none; padding: 6px 14px; border: 1px solid rgba(34,197,94,0.3); border-radius: 6px; }
+    .nav-back:hover { background: rgba(34,197,94,0.1); }
+    .container { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+    h1 { font-size: 28px; font-weight: 700; color: #f0fdf4; margin-bottom: 8px; }
+    h2 { font-size: 18px; font-weight: 600; color: #f0fdf4; margin-bottom: 16px; }
+    h3 { font-size: 15px; font-weight: 600; color: #86efac; margin-bottom: 10px; }
+    .subtitle { color: #86efac; font-size: 14px; margin-bottom: 40px; }
+    .card { background: rgba(12,20,15,0.8); border: 1px solid rgba(34,197,94,0.15); border-radius: 16px; padding: 28px; margin-bottom: 28px; }
+    .skill-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .skill-name { font-family: 'DM Mono', monospace; font-size: 16px; color: #4ade80; font-weight: 500; }
+    .skill-badge { font-size: 11px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 20px; padding: 2px 8px; color: #22c55e; }
+    .skill-desc { font-size: 13px; color: #86efac; margin-bottom: 16px; line-height: 1.5; }
+    .code-block { background: rgba(0,0,0,0.5); border: 1px solid rgba(34,197,94,0.15); border-radius: 8px; padding: 16px; font-family: 'DM Mono', monospace; font-size: 13px; color: #86efac; white-space: pre-wrap; position: relative; }
+    .copy-btn { position: absolute; top: 8px; right: 8px; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'Inter', sans-serif; }
+    .copy-btn:hover { background: rgba(34,197,94,0.25); }
+    .install-steps { display: flex; flex-direction: column; gap: 12px; }
+    .step { display: flex; gap: 16px; align-items: flex-start; }
+    .step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .step-content { flex: 1; }
+    .step-title { font-size: 14px; color: #f0fdf4; font-weight: 500; margin-bottom: 6px; }
+    .step-desc { font-size: 13px; color: #86efac; line-height: 1.5; }
+    .inline-code { font-family: 'DM Mono', monospace; font-size: 12px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 4px; padding: 1px 6px; color: #4ade80; }
+    .mcp-config-box { background: rgba(0,0,0,0.5); border: 1px solid rgba(34,197,94,0.15); border-radius: 8px; padding: 16px; font-family: 'DM Mono', monospace; font-size: 13px; color: #86efac; white-space: pre-wrap; position: relative; margin-top: 16px; }
+    footer { text-align: center; padding: 40px 24px; color: rgba(134,239,172,0.4); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo">
+      <svg width="24" height="24" viewBox="0 0 100 100" fill="none"><rect width="100" height="100" rx="20" fill="#16a34a"/><path d="M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z" fill="white"/></svg>
+      WAHA
+    </a>
+    <span class="nav-sep">/</span>
+    <span class="nav-title">Claude Skills</span>
+    <a href="/dashboard/plus/" class="nav-back">← Plus Hub</a>
+  </nav>
+
+  <div class="container">
+    <h1>🧠 Claude Skills for WAHA</h1>
+    <p class="subtitle">Ready-to-use Claude Code skill definitions for WhatsApp automation</p>
+
+    <!-- Skill 1: waha-send -->
+    <div class="card">
+      <div class="skill-header">
+        <span class="skill-name">/waha-send</span>
+        <span class="skill-badge">Send Messages</span>
+      </div>
+      <div class="skill-desc">Send WhatsApp messages directly from Claude. Ask Claude to send a message and it will call the WAHA API automatically.</div>
+      <div class="code-block" id="skill-send">
+        <button class="copy-btn" onclick="copySkill('skill-send')">Copy</button>
+      </div>
+    </div>
+
+    <!-- Skill 2: waha-broadcast -->
+    <div class="card">
+      <div class="skill-header">
+        <span class="skill-name">/waha-broadcast</span>
+        <span class="skill-badge">Broadcast</span>
+      </div>
+      <div class="skill-desc">Broadcast a message to multiple WhatsApp contacts at once. Claude will ask for the contact list and message, then send to all of them.</div>
+      <div class="code-block" id="skill-broadcast">
+        <button class="copy-btn" onclick="copySkill('skill-broadcast')">Copy</button>
+      </div>
+    </div>
+
+    <!-- Skill 3: waha-status -->
+    <div class="card">
+      <div class="skill-header">
+        <span class="skill-name">/waha-status</span>
+        <span class="skill-badge">Session Status</span>
+      </div>
+      <div class="skill-desc">Check WAHA session status and get the QR code for authentication. Claude will report the session state and show the QR code URL if needed.</div>
+      <div class="code-block" id="skill-status">
+        <button class="copy-btn" onclick="copySkill('skill-status')">Copy</button>
+      </div>
+    </div>
+
+    <!-- Installation -->
+    <div class="card">
+      <h2>How to Install</h2>
+      <div class="install-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Copy a skill above</div>
+            <div class="step-desc">Click "Copy" on any skill definition to copy the markdown content to your clipboard.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Create the skill file</div>
+            <div class="step-desc">
+              Save the copied content to <span class="inline-code">~/.claude/skills/waha-send.md</span> (or the appropriate skill name).
+              Create the directory if it doesn't exist: <span class="inline-code">mkdir -p ~/.claude/skills</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Set your WAHA URL</div>
+            <div class="step-desc">
+              Update the <span class="inline-code">WAHA_URL</span> and <span class="inline-code">API_KEY</span> placeholders in the skill file with your actual WAHA instance URL and API key.
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Use in Claude Code</div>
+            <div class="step-desc">
+              Run <span class="inline-code">/waha-send</span> in Claude Code to invoke the skill. Claude will ask for the required details and send the message.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alternative: MCP Connection -->
+    <div class="card">
+      <h2>Alternative: WAHA MCP Connection</h2>
+      <p style="font-size:13px;color:#86efac;margin-bottom:16px;">Instead of individual skills, connect Claude Code directly to WAHA via MCP for full tool access. This gives Claude access to all 15 WAHA tools without any skill files.</p>
+      <h3>Claude Code Settings (<span class="inline-code">~/.claude/settings.json</span>)</h3>
+      <div class="mcp-config-box" id="mcp-config">
+        <button class="copy-btn" onclick="copyMcp()">Copy</button>
+      </div>
+      <p style="font-size:12px;color:rgba(134,239,172,0.5);margin-top:12px;">After adding this config, restart Claude Code. You'll see all waha_* tools available automatically.</p>
+      <p style="margin-top:16px;"><a href="/dashboard/plus/mcp.html" style="color:#22c55e;font-size:13px;">→ View full MCP documentation</a></p>
+    </div>
+  </div>
+
+  <footer>WAHA Plus — Claude Skills &nbsp;·&nbsp; WhatsApp HTTP API</footer>
+
+  <script>
+    let apiKey = '';
+    let origin = window.location.origin;
+
+    const skills = {
+      send: (url, key) => `---
+name: waha-send
+description: Send WhatsApp messages via WAHA API
+triggers:
+  - send whatsapp
+  - whatsapp message
+---
+
+Send a WhatsApp message via WAHA.
+
+Steps:
+1. Ask the user for:
+   - Session name (default: "default")
+   - Recipient phone number or chatId (e.g. "15551234567@c.us")
+   - Message text to send
+
+2. Call the WAHA API:
+   POST ${url}/api/sendText
+   Headers:
+     Content-Type: application/json
+     Authorization: Bearer ${key}
+   Body:
+     {
+       "session": "<session>",
+       "chatId": "<phone>@c.us",
+       "text": "<message>"
+     }
+
+3. Show the API response to the user. If successful, confirm the message was sent.
+   If an error occurs, explain what went wrong and suggest checking the session status.`,
+
+      broadcast: (url, key) => `---
+name: waha-broadcast
+description: Broadcast WhatsApp messages to multiple contacts via WAHA API
+triggers:
+  - broadcast whatsapp
+  - send to multiple
+  - bulk whatsapp
+---
+
+Broadcast a WhatsApp message to multiple contacts via WAHA.
+
+Steps:
+1. Ask the user for:
+   - Session name (default: "default")
+   - List of recipient phone numbers (comma-separated or one per line)
+   - Message text to send
+   - Delay between messages in ms (default: 500, to avoid rate limiting)
+
+2. Format the phone numbers as chatIds (add "@c.us" if not already present).
+
+3. Call the WAHA broadcast API:
+   POST ${url}/api/broadcast/text
+   Headers:
+     Content-Type: application/json
+     Authorization: Bearer ${key}
+   Body:
+     {
+       "session": "<session>",
+       "chatIds": ["<phone1>@c.us", "<phone2>@c.us"],
+       "text": "<message>",
+       "delayMs": 500
+     }
+
+4. Show the result to the user: how many messages were sent successfully and any failures.`,
+
+      status: (url, key) => `---
+name: waha-status
+description: Check WAHA session status and get QR code for authentication
+triggers:
+  - waha status
+  - whatsapp status
+  - session qr
+---
+
+Check the status of a WAHA WhatsApp session.
+
+Steps:
+1. Ask the user for the session name (default: "default").
+
+2. Fetch session info:
+   GET ${url}/api/sessions/<session>
+   Headers:
+     Authorization: Bearer ${key}
+
+3. Report the session status to the user:
+   - WORKING: Session is connected and ready
+   - STARTING: Session is initializing
+   - SCAN_QR_CODE: User needs to scan a QR code
+   - STOPPED: Session is not running
+   - FAILED: Session encountered an error
+
+4. If status is SCAN_QR_CODE, provide the QR code URL:
+   ${url}/api/<session>/auth/qr
+   Tell the user to open this URL in a browser to scan the QR code with their WhatsApp app.
+
+5. If status is STOPPED or FAILED, offer to start/restart the session by calling:
+   POST ${url}/api/sessions/start
+   Body: { "name": "<session>" }`,
+    };
+
+    function renderSkill(id, content) {
+      const el = document.getElementById(id);
+      // Keep button, set text
+      const btn = el.querySelector('.copy-btn');
+      el.textContent = '';
+      el.appendChild(btn);
+      el.appendChild(document.createTextNode(content));
+    }
+
+    function copySkill(id) {
+      const el = document.getElementById(id);
+      const text = el.textContent.replace('Copy', '').trim();
+      navigator.clipboard.writeText(text);
+      const btn = el.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    }
+
+    function copyMcp() {
+      const el = document.getElementById('mcp-config');
+      const text = el.textContent.replace('Copy', '').trim();
+      navigator.clipboard.writeText(text);
+      const btn = el.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    }
+
+    function renderAll() {
+      const wahaUrl = origin;
+      const key = apiKey;
+
+      renderSkill('skill-send', skills.send(wahaUrl, key));
+      renderSkill('skill-broadcast', skills.broadcast(wahaUrl, key));
+      renderSkill('skill-status', skills.status(wahaUrl, key));
+
+      const mcpConfig = {
+        mcpServers: {
+          waha: {
+            type: 'sse',
+            url: `${wahaUrl}/api/mcp`,
+            headers: { Authorization: `Bearer ${key}` },
+          },
+        },
+      };
+      const mcpEl = document.getElementById('mcp-config');
+      const mcpBtn = mcpEl.querySelector('.copy-btn');
+      mcpEl.textContent = '';
+      mcpEl.appendChild(mcpBtn);
+      mcpEl.appendChild(document.createTextNode(JSON.stringify(mcpConfig, null, 2)));
+    }
+
+    async function init() {
+      try {
+        const r = await fetch('/api/dashboard/config');
+        const d = await r.json();
+        apiKey = d.apiKey || '';
+      } catch {}
+      renderAll();
+    }
+
+    init();
+  </script>
+</body>
+</html>

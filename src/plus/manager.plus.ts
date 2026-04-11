@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   OnModuleInit,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
@@ -53,6 +54,10 @@ import { WhatsappSessionWPPCore } from '../core/engines/wpp/session.wpp.core';
 import { WhatsappSessionWebJSCore } from '../core/engines/webjs/session.webjs.core';
 import { getProxyConfig } from '../core/helpers.proxy';
 import { MediaManager } from '../core/media/MediaManager';
+import { AnalyticsService } from './analytics.service';
+import { AutoReplyService } from './autoreply.service';
+import { MessageEventService } from './message.event.service';
+import { MessageLogService } from './message.log.service';
 
 const MAX_SESSIONS_ENV = 'WAHA_MAX_SESSIONS';
 
@@ -85,6 +90,10 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     private mediaStorageFactory: MediaStorageFactory,
     @Inject(AppsService)
     appsService: IAppsService,
+    @Optional() private messageEventService?: MessageEventService,
+    @Optional() private autoReplyService?: AutoReplyService,
+    @Optional() private messageLogService?: MessageLogService,
+    @Optional() private analyticsService?: AnalyticsService,
   ) {
     super(log, config, gowsConfigService, appsService);
     this.sessions = new Map();
@@ -275,6 +284,13 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
       await session.start();
       logger.info('Session has been started.');
       await this.appsService.afterSessionStart(session, this.store);
+      // Subscribe to message events for auto-reply, logging, analytics
+      this.subscribeMessageEvents(name);
+      if (this.analyticsService) {
+        this.analyticsService
+          .increment(name, 'sessions_started')
+          .catch(() => {});
+      }
     } else {
       // Session failed before start — mark as not running so it can be restarted
       this.sessions.set(name, null);
@@ -472,6 +488,74 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
   // ─── Init & Restart ───────────────────────────────────────────────────────────
   async onModuleInit() {
     await this.init();
+    // Wire circular-dependency-free plus services
+    if (this.autoReplyService) this.autoReplyService.setManager(this);
+    if (this.messageLogService) this.messageLogService.setManager(this);
+    if (this.analyticsService) this.analyticsService.setManager(this);
+  }
+
+  // ─── Plus: Message Event Subscription ────────────────────────────────────────
+  private subscribeMessageEvents(name: string) {
+    if (
+      !this.messageEventService &&
+      !this.messageLogService &&
+      !this.analyticsService
+    )
+      return;
+    const events = this.eventsMap.get(name);
+    if (!events) return;
+    const msgObservable = events.get(WAHAEvents.MESSAGE);
+    msgObservable.subscribe((event: any) => {
+      try {
+        const payload = event?.payload ?? event ?? {};
+        const fromMe: boolean =
+          payload?.fromMe ?? payload?.key?.fromMe ?? false;
+        const chatId: string =
+          payload?.from ||
+          payload?.chatId ||
+          payload?.to ||
+          payload?.key?.remoteJid ||
+          '';
+        const text: string =
+          payload?.body || payload?.text || payload?.message?.text || '';
+        if (!chatId) return;
+        const direction: 'incoming' | 'outgoing' = fromMe
+          ? 'outgoing'
+          : 'incoming';
+
+        // Log message history
+        if (this.messageLogService) {
+          this.messageLogService
+            .log({
+              session: name,
+              chatId,
+              direction,
+              type: 'text',
+              body: text || null,
+              timestamp: Date.now(),
+              status: 'received',
+              raw: payload,
+            })
+            .catch(() => {});
+        }
+
+        // Analytics counters
+        if (this.analyticsService) {
+          const metric =
+            direction === 'outgoing' ? 'messages_sent' : 'messages_received';
+          this.analyticsService.increment(name, metric).catch(() => {});
+        }
+
+        // Emit to message event broker (auto-reply, etc.)
+        if (this.messageEventService && text) {
+          this.messageEventService
+            .emit(name, chatId, text, direction, payload)
+            .catch(() => {});
+        }
+      } catch {
+        // swallow — never let subscription throw
+      }
+    });
   }
 
   async init() {

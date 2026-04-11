@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WAHA Plus — Engine Comparison</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2316a34a'/><path d='M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z' fill='white'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #080c0a; color: #e2e8e0; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+    .nav { background: rgba(12,20,15,0.95); border-bottom: 1px solid rgba(34,197,94,0.15); padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 56px; position: sticky; top: 0; z-index: 100; }
+    .nav-logo { font-size: 18px; font-weight: 700; color: #22c55e; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+    .nav-sep { color: rgba(34,197,94,0.3); }
+    .nav-title { font-size: 14px; color: #86efac; }
+    .nav-back { margin-left: auto; font-size: 13px; color: #86efac; text-decoration: none; padding: 6px 14px; border: 1px solid rgba(34,197,94,0.3); border-radius: 6px; }
+    .nav-back:hover { background: rgba(34,197,94,0.1); }
+    .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+    h1 { font-size: 28px; font-weight: 700; color: #f0fdf4; margin-bottom: 8px; }
+    h2 { font-size: 18px; font-weight: 600; color: #f0fdf4; margin-bottom: 16px; }
+    h3 { font-size: 15px; font-weight: 600; color: #86efac; margin-bottom: 10px; }
+    .subtitle { color: #86efac; font-size: 14px; margin-bottom: 40px; }
+    .card { background: rgba(12,20,15,0.8); border: 1px solid rgba(34,197,94,0.15); border-radius: 16px; padding: 28px; margin-bottom: 28px; }
+    /* Engine cards */
+    .engine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 32px; }
+    .engine-card { background: rgba(0,0,0,0.35); border: 1px solid rgba(34,197,94,0.15); border-radius: 12px; padding: 20px; cursor: pointer; transition: border-color 0.2s; }
+    .engine-card:hover, .engine-card.selected { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.05); }
+    .engine-card.recommended { border-color: rgba(34,197,94,0.4); }
+    .engine-name { font-size: 20px; font-weight: 700; color: #f0fdf4; margin-bottom: 4px; }
+    .engine-badge { display: inline-block; font-size: 11px; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); border-radius: 20px; padding: 2px 8px; color: #22c55e; margin-bottom: 10px; }
+    .engine-badge.beta { background: rgba(234,179,8,0.1); border-color: rgba(234,179,8,0.3); color: #eab308; }
+    .engine-desc { font-size: 13px; color: #86efac; line-height: 1.5; }
+    /* Comparison table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { padding: 12px 16px; text-align: left; color: #86efac; font-weight: 600; border-bottom: 1px solid rgba(34,197,94,0.2); }
+    thead th:first-child { color: #f0fdf4; }
+    tbody tr { border-bottom: 1px solid rgba(34,197,94,0.07); }
+    tbody tr:hover { background: rgba(34,197,94,0.03); }
+    tbody td { padding: 10px 16px; color: #e2e8e0; }
+    tbody td:first-child { color: #86efac; font-weight: 500; }
+    .check { color: #22c55e; font-size: 16px; }
+    .cross { color: rgba(134,239,172,0.25); font-size: 16px; }
+    .warn { color: #eab308; font-size: 16px; }
+    /* Decision tree */
+    .decision-tree { display: flex; flex-direction: column; gap: 14px; }
+    .dt-node { background: rgba(0,0,0,0.3); border: 1px solid rgba(34,197,94,0.15); border-radius: 10px; padding: 16px; }
+    .dt-question { font-size: 14px; color: #f0fdf4; font-weight: 500; margin-bottom: 10px; }
+    .dt-options { display: flex; gap: 12px; flex-wrap: wrap; }
+    .dt-option { font-size: 13px; color: #86efac; }
+    .dt-option strong { color: #22c55e; }
+    /* Quick start */
+    .code-block { background: rgba(0,0,0,0.5); border: 1px solid rgba(34,197,94,0.15); border-radius: 8px; padding: 16px; font-family: 'DM Mono', monospace; font-size: 13px; color: #86efac; white-space: pre-wrap; position: relative; margin-bottom: 16px; }
+    .copy-btn { position: absolute; top: 8px; right: 8px; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'Inter', sans-serif; }
+    .copy-btn:hover { background: rgba(34,197,94,0.25); }
+    /* Live session creator */
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    label { font-size: 13px; color: #86efac; }
+    input, select { background: rgba(0,0,0,0.4); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; color: #e2e8e0; padding: 8px 12px; font-size: 13px; font-family: 'Inter', sans-serif; width: 100%; max-width: 380px; }
+    input:focus, select:focus { outline: none; border-color: rgba(34,197,94,0.5); }
+    select option { background: #0c140f; }
+    .btn { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #22c55e; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .btn:hover { background: rgba(34,197,94,0.25); }
+    .result-box { background: rgba(0,0,0,0.5); border: 1px solid rgba(34,197,94,0.15); border-radius: 8px; padding: 16px; font-family: 'DM Mono', monospace; font-size: 12px; color: #86efac; white-space: pre-wrap; margin-top: 16px; min-height: 60px; }
+    /* Sessions list */
+    .sessions-list { display: flex; flex-direction: column; gap: 10px; }
+    .session-row { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(34,197,94,0.1); border-radius: 8px; padding: 12px 16px; font-size: 13px; }
+    .session-name { font-family: 'DM Mono', monospace; color: #f0fdf4; font-weight: 500; }
+    .session-engine { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: #22c55e; font-family: 'DM Mono', monospace; }
+    .session-status { margin-left: auto; font-size: 12px; }
+    .status-working { color: #22c55e; }
+    .status-stopped { color: rgba(134,239,172,0.4); }
+    footer { text-align: center; padding: 40px 24px; color: rgba(134,239,172,0.4); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo">
+      <svg width="24" height="24" viewBox="0 0 100 100" fill="none"><rect width="100" height="100" rx="20" fill="#16a34a"/><path d="M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z" fill="white"/></svg>
+      WAHA
+    </a>
+    <span class="nav-sep">/</span>
+    <span class="nav-title">Engine Comparison</span>
+    <a href="/dashboard/plus/" class="nav-back">← Plus Hub</a>
+  </nav>
+
+  <div class="container">
+    <h1>⚙️ Engine Comparison & Selection</h1>
+    <p class="subtitle">Choose the right WhatsApp engine for your use case</p>
+
+    <!-- Engine Cards -->
+    <div class="engine-grid">
+      <div class="engine-card recommended" onclick="selectEngine('NOWEB')">
+        <div class="engine-name">NOWEB</div>
+        <div class="engine-badge">Recommended</div>
+        <div class="engine-desc">Pure Node.js, no browser required. Low memory, best for servers and production workloads.</div>
+      </div>
+      <div class="engine-card" onclick="selectEngine('WEBJS')">
+        <div class="engine-name">WEBJS</div>
+        <div class="engine-badge">Stable</div>
+        <div class="engine-desc">Full whatsapp-web.js with Chromium. Higher memory but maximum feature compatibility.</div>
+      </div>
+      <div class="engine-card" onclick="selectEngine('WPP')">
+        <div class="engine-name">WPP</div>
+        <div class="engine-badge">Stable</div>
+        <div class="engine-desc">WPPConnect engine. Browser-based alternative with some unique features not in WEBJS.</div>
+      </div>
+      <div class="engine-card" onclick="selectEngine('GOWS')">
+        <div class="engine-name">GOWS</div>
+        <div class="engine-badge beta">Beta</div>
+        <div class="engine-desc">Experimental Go-based implementation. Fastest startup but limited feature set.</div>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="card">
+      <h2>Feature Comparison</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>NOWEB</th>
+              <th>WEBJS</th>
+              <th>WPP</th>
+              <th>GOWS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>No browser required</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="cross">❌</span></td>
+              <td><span class="cross">❌</span></td>
+              <td><span class="check">✅</span></td>
+            </tr>
+            <tr>
+              <td>Low memory usage</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="cross">❌</span></td>
+              <td><span class="cross">❌</span></td>
+              <td><span class="check">✅</span></td>
+            </tr>
+            <tr>
+              <td>Send text messages</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+            </tr>
+            <tr>
+              <td>Send media (images, files)</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="warn">⚠️</span></td>
+            </tr>
+            <tr>
+              <td>Receive messages</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+            </tr>
+            <tr>
+              <td>Groups</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="warn">⚠️</span></td>
+            </tr>
+            <tr>
+              <td>Channels</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="cross">❌</span></td>
+            </tr>
+            <tr>
+              <td>Calls</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="cross">❌</span></td>
+            </tr>
+            <tr>
+              <td>Production ready</td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="check">✅</span></td>
+              <td><span class="warn">⚠️</span></td>
+            </tr>
+            <tr>
+              <td>Stability</td>
+              <td>High</td>
+              <td>High</td>
+              <td>High</td>
+              <td>Beta</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Decision Tree -->
+    <div class="card">
+      <h2>Which Engine Should I Use?</h2>
+      <div class="decision-tree">
+        <div class="dt-node">
+          <div class="dt-question">Do you need low memory usage (e.g. running on a small VPS or many sessions)?</div>
+          <div class="dt-options">
+            <div class="dt-option">Yes → <strong>Use NOWEB</strong> (no Chromium, ~50MB/session)</div>
+            <div class="dt-option">No → Continue below</div>
+          </div>
+        </div>
+        <div class="dt-node">
+          <div class="dt-question">Do you need maximum feature compatibility or have existing whatsapp-web.js code?</div>
+          <div class="dt-options">
+            <div class="dt-option">Yes → <strong>Use WEBJS</strong> (full Chromium, ~400MB/session)</div>
+            <div class="dt-option">No → Continue below</div>
+          </div>
+        </div>
+        <div class="dt-node">
+          <div class="dt-question">Do you need WPPConnect-specific features (labels, communities)?</div>
+          <div class="dt-options">
+            <div class="dt-option">Yes → <strong>Use WPP</strong> (Chromium, WPPConnect fork)</div>
+            <div class="dt-option">No → Continue below</div>
+          </div>
+        </div>
+        <div class="dt-node">
+          <div class="dt-question">Are you experimenting and need the fastest possible startup?</div>
+          <div class="dt-options">
+            <div class="dt-option">Yes → <strong>Use GOWS</strong> (experimental, limited features)</div>
+            <div class="dt-option">Default → <strong>Use NOWEB</strong> (safe default for most use cases)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Start -->
+    <div class="card">
+      <h2>Quick Start — Create a Session</h2>
+      <h3>NOWEB (Recommended)</h3>
+      <div class="code-block" id="qs-noweb"><button class="copy-btn" onclick="copyBlock('qs-noweb')">Copy</button>POST /api/sessions
+Content-Type: application/json
+
+{
+  "name": "default",
+  "config": { "proxy": null },
+  "start": true
+}</div>
+      <h3>WEBJS</h3>
+      <div class="code-block" id="qs-webjs"><button class="copy-btn" onclick="copyBlock('qs-webjs')">Copy</button>POST /api/sessions
+Content-Type: application/json
+
+{
+  "name": "default",
+  "engine": "WEBJS",
+  "start": true
+}</div>
+      <h3>WPP</h3>
+      <div class="code-block" id="qs-wpp"><button class="copy-btn" onclick="copyBlock('qs-wpp')">Copy</button>POST /api/sessions
+Content-Type: application/json
+
+{
+  "name": "default",
+  "engine": "WPP",
+  "start": true
+}</div>
+      <h3>GOWS</h3>
+      <div class="code-block" id="qs-gows"><button class="copy-btn" onclick="copyBlock('qs-gows')">Copy</button>POST /api/sessions
+Content-Type: application/json
+
+{
+  "name": "default",
+  "engine": "GOWS",
+  "start": true
+}</div>
+    </div>
+
+    <!-- Live Session Creator -->
+    <div class="card">
+      <h2>Live Session Creator</h2>
+      <div class="form-group">
+        <label>Session Name</label>
+        <input id="session-name" type="text" placeholder="my-session" value="default" />
+      </div>
+      <div class="form-group">
+        <label>Engine</label>
+        <select id="session-engine">
+          <option value="NOWEB">NOWEB (Recommended)</option>
+          <option value="WEBJS">WEBJS</option>
+          <option value="WPP">WPP</option>
+          <option value="GOWS">GOWS</option>
+        </select>
+      </div>
+      <button class="btn" onclick="createSession()">Start Session</button>
+      <div class="result-box" id="create-result">// Result will appear here...</div>
+    </div>
+
+    <!-- Current Sessions -->
+    <div class="card">
+      <h2>Current Sessions</h2>
+      <div class="sessions-list" id="sessions-list">
+        <div style="color:rgba(134,239,172,0.4);font-size:13px;">Loading sessions...</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>WAHA Plus — Engine Comparison &nbsp;·&nbsp; WhatsApp HTTP API</footer>
+
+  <script>
+    let apiKey = '';
+
+    function selectEngine(eng) {
+      document.querySelectorAll('.engine-card').forEach(c => c.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+      document.getElementById('session-engine').value = eng;
+    }
+
+    function copyBlock(id) {
+      const el = document.getElementById(id);
+      const text = el.textContent.replace('Copy', '').trim();
+      navigator.clipboard.writeText(text);
+    }
+
+    async function createSession() {
+      const name = document.getElementById('session-name').value.trim() || 'default';
+      const engine = document.getElementById('session-engine').value;
+      document.getElementById('create-result').textContent = 'Starting session...';
+      try {
+        const r = await fetch('/api/sessions/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({ name }),
+        });
+        const d = await r.json();
+        document.getElementById('create-result').textContent = JSON.stringify(d, null, 2);
+        loadSessions();
+      } catch (err) {
+        document.getElementById('create-result').textContent = `Error: ${err.message}`;
+      }
+    }
+
+    async function loadSessions() {
+      if (!apiKey) return;
+      try {
+        const r = await fetch('/api/sessions?all=true', { headers: { 'Authorization': `Bearer ${apiKey}` } });
+        const sessions = await r.json();
+        const list = document.getElementById('sessions-list');
+        if (!Array.isArray(sessions) || sessions.length === 0) {
+          list.innerHTML = '<div style="color:rgba(134,239,172,0.4);font-size:13px;">No sessions found.</div>';
+          return;
+        }
+        list.innerHTML = sessions.map(s => `
+          <div class="session-row">
+            <span class="session-name">${s.name}</span>
+            <span class="session-engine">${s.engine || 'NOWEB'}</span>
+            <span class="session-status ${s.status === 'WORKING' ? 'status-working' : 'status-stopped'}">${s.status}</span>
+          </div>
+        `).join('');
+      } catch {}
+    }
+
+    async function init() {
+      try {
+        const r = await fetch('/api/dashboard/config');
+        const d = await r.json();
+        apiKey = d.apiKey || '';
+      } catch {}
+      loadSessions();
+    }
+
+    init();
+  </script>
+</body>
+</html>

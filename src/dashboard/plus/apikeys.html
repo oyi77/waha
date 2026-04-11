@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WAHA Plus — API Keys</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2316a34a'/><path d='M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z' fill='white'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #0a0f0a;
+      color: #e2e8e0;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+
+    .nav {
+      background: rgba(12,20,15,0.95);
+      border-bottom: 1px solid rgba(34,197,94,0.15);
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 16px;
+      height: 56px; position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .nav-logo { font-size: 18px; font-weight: 700; color: #22c55e; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+    .nav-sep { color: rgba(34,197,94,0.3); }
+    .nav-title { font-size: 14px; color: #86efac; }
+    .nav-back { margin-left: auto; font-size: 13px; color: #86efac; text-decoration: none; padding: 6px 14px; border: 1px solid rgba(34,197,94,0.3); border-radius: 6px; transition: background 0.2s; }
+    .nav-back:hover { background: rgba(34,197,94,0.1); }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+    .page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 32px; gap: 16px; flex-wrap: wrap;
+    }
+    .page-header h1 { font-size: 28px; font-weight: 700; color: #f0fdf4; margin-bottom: 6px; }
+    .page-header .subtitle { color: #86efac; font-size: 14px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 18px; border-radius: 8px; font-size: 14px;
+      font-weight: 600; cursor: pointer; border: none;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: #16a34a; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #15803d; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(34,197,94,0.25); }
+    .btn-secondary { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+    .btn-secondary:hover:not(:disabled) { background: rgba(34,197,94,0.2); }
+    .btn-ghost { background: transparent; color: #86efac; border: 1px solid rgba(34,197,94,0.2); font-size: 13px; padding: 7px 14px; }
+    .btn-ghost:hover:not(:disabled) { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.4); }
+    .btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); font-size: 13px; padding: 7px 14px; }
+    .btn-danger:hover:not(:disabled) { background: rgba(239,68,68,0.22); }
+    .btn-sm { font-size: 12px; padding: 5px 10px; border-radius: 6px; }
+    .btn-icon { padding: 6px 8px; border-radius: 6px; line-height: 1; }
+
+    .card {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(34,197,94,0.15);
+      border-radius: 16px;
+      padding: 28px;
+      backdrop-filter: blur(12px);
+      margin-bottom: 24px;
+    }
+    .card-title { font-size: 16px; font-weight: 600; color: #f0fdf4; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left; padding: 8px 14px;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: rgba(134,239,172,0.6);
+      border-bottom: 1px solid rgba(34,197,94,0.12);
+    }
+    td { padding: 14px; border-bottom: 1px solid rgba(34,197,94,0.07); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(34,197,94,0.025); }
+
+    .mono { font-family: 'DM Mono', monospace; font-size: 12px; color: #86efac; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .badge-admin { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
+    .badge-session { background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+    .badge-active { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+    .badge-inactive { background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+
+    .key-cell { display: flex; align-items: center; gap: 8px; }
+    .key-masked { font-family: 'DM Mono', monospace; font-size: 12px; color: #86efac; letter-spacing: 0.03em; }
+
+    .copy-btn {
+      background: transparent; border: 1px solid rgba(34,197,94,0.2);
+      color: #86efac; cursor: pointer; border-radius: 5px;
+      padding: 3px 7px; font-size: 11px; transition: all 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .copy-btn:hover { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.4); }
+    .copy-btn.copied { background: rgba(34,197,94,0.15); color: #4ade80; border-color: rgba(34,197,94,0.4); }
+
+    .toggle-switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: rgba(148,163,184,0.2); border-radius: 20px;
+      border: 1px solid rgba(148,163,184,0.2);
+      transition: 0.2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      width: 14px; height: 14px; border-radius: 50%;
+      left: 2px; top: 2px;
+      background: #94a3b8;
+      transition: 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: rgba(34,197,94,0.25); border-color: rgba(34,197,94,0.4); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: #22c55e; }
+
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: rgba(134,239,172,0.4); font-size: 14px;
+    }
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state p { margin-top: 6px; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: #0d1a11;
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%; max-width: 480px;
+      transform: translateY(16px) scale(0.97);
+      transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+    .modal-title { font-size: 20px; font-weight: 700; color: #f0fdf4; margin-bottom: 24px; }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    label { font-size: 12px; color: #86efac; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+    input, select, textarea {
+      background: rgba(8,12,10,0.9); border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 8px; color: #e2e8e0; padding: 10px 14px; font-size: 14px;
+      font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { border-color: rgba(34,197,94,0.5); }
+    select option { background: #0d1a11; }
+
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0; border-bottom: 1px solid rgba(34,197,94,0.08);
+    }
+    .toggle-row:last-of-type { border-bottom: none; margin-bottom: 8px; }
+    .toggle-label { font-size: 14px; color: #e2e8e0; font-weight: 500; }
+    .toggle-desc { font-size: 12px; color: rgba(134,239,172,0.5); margin-top: 2px; }
+
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+    /* Key reveal box */
+    .key-reveal {
+      background: rgba(34,197,94,0.06);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 12px; padding: 20px; margin-top: 16px;
+    }
+    .key-reveal-label {
+      font-size: 12px; font-weight: 600; color: #22c55e;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .key-reveal-label::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; animation: pulse 1.5s infinite; }
+    .key-reveal-value {
+      font-family: 'DM Mono', monospace; font-size: 13px; color: #4ade80;
+      word-break: break-all; line-height: 1.6; margin-bottom: 12px;
+      background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 12px;
+    }
+    .key-reveal-warning {
+      font-size: 12px; color: rgba(250,204,21,0.8);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #16a34a; color: white;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 500;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #dc2626; }
+
+    @media (max-width: 768px) {
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo">
+      <svg width="24" height="24" viewBox="0 0 100 100" fill="none"><rect width="100" height="100" rx="20" fill="#16a34a"/><path d="M72 28H28a6 6 0 0 0-6 6v34l12-12h38a6 6 0 0 0 6-6V34a6 6 0 0 0-6-6z" fill="white"/></svg>
+      WAHA
+    </a>
+    <span class="nav-sep">/</span>
+    <span class="nav-title">API Keys</span>
+    <a href="/dashboard/plus/" class="nav-back">← Plus Hub</a>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1>API Keys</h1>
+        <p class="subtitle">Manage API keys for authentication and access control</p>
+      </div>
+      <button class="btn btn-primary" onclick="openCreateModal()">＋ Create Key</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        Active API Keys
+      </div>
+
+      <div id="keys-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Key</th>
+              <th>Type</th>
+              <th>Session</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="keys-tbody">
+            <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⌛</div><p>Loading keys...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Modal -->
+  <div class="modal-overlay" id="create-modal">
+    <div class="modal">
+      <div class="modal-title">Create API Key</div>
+
+      <div id="create-form-wrap">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Admin Key</div>
+            <div class="toggle-desc">Full access to all endpoints and sessions</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="f-isAdmin" onchange="onAdminToggle(this)" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Active</div>
+            <div class="toggle-desc">Key can be used immediately after creation</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="f-isActive" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="form-group" id="session-group" style="margin-top:16px;">
+          <label>Session Name <span style="color:#f87171">*</span></label>
+          <input type="text" id="f-session" placeholder="default" />
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="createKey()">Create Key</button>
+        </div>
+      </div>
+
+      <div id="create-result-wrap" style="display:none;">
+        <div class="key-reveal">
+          <div class="key-reveal-label">Key Created Successfully</div>
+          <div class="key-reveal-value" id="result-key-value"></div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="btn btn-secondary btn-sm" onclick="copyNewKey()">Copy Key</button>
+          </div>
+          <div class="key-reveal-warning">
+            &#9888; This key will not be shown again — copy it now
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="closeCreateModal(); loadKeys();">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal">
+      <div class="modal-title" style="color:#f87171;">Delete API Key?</div>
+      <p style="color:#86efac;font-size:14px;margin-bottom:8px;">This action cannot be undone. Any application using this key will lose access immediately.</p>
+      <p style="font-size:13px;color:rgba(134,239,172,0.6);">Key ID: <span class="mono" id="delete-key-id"></span></p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()" style="padding:10px 18px;font-size:14px;">Delete Key</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let apiKey = '';
+    let pendingDeleteId = null;
+    let newKeyValue = '';
+
+    async function loadApiKey() {
+      try {
+        const r = await fetch('/api/dashboard/config');
+        const d = await r.json();
+        apiKey = d.apiKey || '';
+      } catch {}
+    }
+
+    function headers() {
+      const h = { 'Content-Type': 'application/json' };
+      if (apiKey) h['X-Api-Key'] = apiKey;
+      return h;
+    }
+
+    function toast(msg, isErr = false) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast show' + (isErr ? ' error' : '');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.className = 'toast'; }, 3000);
+    }
+
+    function maskKey(key) {
+      if (!key || key.length < 8) return '****';
+      const last4 = key.slice(-4);
+      return 'key_****...' + last4;
+    }
+
+    function truncateId(id) {
+      if (!id) return '—';
+      return id.length > 12 ? id.slice(0, 8) + '...' + id.slice(-4) : id;
+    }
+
+    function formatDate(d) {
+      if (!d) return '—';
+      return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadKeys() {
+      const tbody = document.getElementById('keys-tbody');
+      try {
+        const r = await fetch('/api/keys', { headers: headers() });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const keys = await r.json();
+        if (!Array.isArray(keys) || keys.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔑</div><p>No API keys yet.</p><p style="margin-top:8px;font-size:12px;">Click "＋ Create Key" to add your first key.</p></div></td></tr>`;
+          return;
+        }
+        tbody.innerHTML = keys.map(k => `
+          <tr>
+            <td><span class="mono" title="${k.id || ''}">${truncateId(k.id)}</span></td>
+            <td>
+              <div class="key-cell">
+                <span class="key-masked">${maskKey(k.key)}</span>
+                <button class="copy-btn" onclick="copyKeyToClipboard('${(k.key||'').replace(/'/g,"\\'")}', this)">Copy</button>
+              </div>
+            </td>
+            <td>${k.isAdmin
+              ? '<span class="badge badge-admin">&#9670; Admin</span>'
+              : '<span class="badge badge-session">&#9632; Session</span>'}</td>
+            <td><span class="mono">${k.session || '—'}</span></td>
+            <td>
+              <label class="toggle-switch" title="Toggle active state">
+                <input type="checkbox" ${k.isActive ? 'checked' : ''} onchange="toggleActive('${k.id}', this)" />
+                <span class="toggle-slider"></span>
+              </label>
+            </td>
+            <td style="font-size:12px;color:rgba(134,239,172,0.6);">${formatDate(k.createdAt)}</td>
+            <td>
+              <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${k.id}')">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⚠</div><p>Failed to load keys: ${e.message}</p><p style="margin-top:8px;font-size:12px;">Make sure the /api/keys endpoint is available.</p></div></td></tr>`;
+      }
+    }
+
+    async function toggleActive(id, checkbox) {
+      const isActive = checkbox.checked;
+      try {
+        const r = await fetch(`/api/keys/${id}`, {
+          method: 'PUT',
+          headers: headers(),
+          body: JSON.stringify({ isActive }),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        toast(isActive ? 'Key activated' : 'Key deactivated');
+      } catch (e) {
+        toast('Failed to update key: ' + e.message, true);
+        checkbox.checked = !isActive;
+      }
+    }
+
+    function onAdminToggle(cb) {
+      document.getElementById('session-group').style.display = cb.checked ? 'none' : 'flex';
+    }
+
+    async function createKey() {
+      const isAdmin = document.getElementById('f-isAdmin').checked;
+      const isActive = document.getElementById('f-isActive').checked;
+      const session = document.getElementById('f-session').value.trim();
+
+      if (!isAdmin && !session) {
+        toast('Session name is required for non-admin keys', true);
+        return;
+      }
+
+      const payload = { isAdmin, isActive };
+      if (!isAdmin) payload.session = session;
+
+      try {
+        const r = await fetch('/api/keys', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const result = await r.json();
+        newKeyValue = result.key || '';
+        document.getElementById('result-key-value').textContent = newKeyValue;
+        document.getElementById('create-form-wrap').style.display = 'none';
+        document.getElementById('create-result-wrap').style.display = 'block';
+      } catch (e) {
+        toast('Failed to create key: ' + e.message, true);
+      }
+    }
+
+    function copyNewKey() {
+      if (!newKeyValue) return;
+      navigator.clipboard.writeText(newKeyValue).then(() => toast('Key copied to clipboard!'));
+    }
+
+    function copyKeyToClipboard(key, btn) {
+      navigator.clipboard.writeText(key).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+
+    function openCreateModal() {
+      document.getElementById('f-isAdmin').checked = false;
+      document.getElementById('f-isActive').checked = true;
+      document.getElementById('f-session').value = '';
+      document.getElementById('session-group').style.display = 'flex';
+      document.getElementById('create-form-wrap').style.display = 'block';
+      document.getElementById('create-result-wrap').style.display = 'none';
+      newKeyValue = '';
+      document.getElementById('create-modal').classList.add('open');
+    }
+
+    function closeCreateModal() {
+      document.getElementById('create-modal').classList.remove('open');
+    }
+
+    function openDeleteModal(id) {
+      pendingDeleteId = id;
+      document.getElementById('delete-key-id').textContent = id;
+      document.getElementById('delete-modal').classList.add('open');
+    }
+
+    function closeDeleteModal() {
+      pendingDeleteId = null;
+      document.getElementById('delete-modal').classList.remove('open');
+    }
+
+    async function confirmDelete() {
+      if (!pendingDeleteId) return;
+      try {
+        const r = await fetch(`/api/keys/${pendingDeleteId}`, {
+          method: 'DELETE', headers: headers(),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        toast('Key deleted');
+        closeDeleteModal();
+        loadKeys();
+      } catch (e) {
+        toast('Failed to delete key: ' + e.message, true);
+      }
+    }
+
+    // Close modals on overlay click
+    document.getElementById('create-modal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeCreateModal();
+    });
+    document.getElementById('delete-modal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeDeleteModal();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeCreateModal(); closeDeleteModal(); }
+    });
+
+    loadApiKey().then(loadKeys);
+  </script>
+</body>
+</html>

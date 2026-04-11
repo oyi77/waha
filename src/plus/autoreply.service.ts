@@ -3,6 +3,8 @@ import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
 import Knex from 'knex';
 
+import { MessageEventService } from './message.event.service';
+
 const TABLE = 'autoreply_rule';
 
 const MIGRATIONS = [
@@ -72,17 +74,33 @@ function matchesRule(rule: AutoReplyRule, text: string): boolean {
 export class AutoReplyService {
   private _knex: Knex.Knex | null = null;
   private _migrated = false;
+  private _manager: SessionManager | null = null;
 
-  constructor(private manager: SessionManager) {}
+  constructor(private eventService: MessageEventService) {}
+
+  setManager(m: SessionManager) {
+    this._manager = m;
+  }
 
   private async db(): Promise<Knex.Knex> {
     if (!this._knex) {
-      this._knex = this.manager.store.getWAHADatabase();
+      if (!this._manager) {
+        throw new Error('AutoReplyService: SessionManager not set');
+      }
+      this._knex = this._manager.store.getWAHADatabase();
     }
     if (!this._migrated) {
       this._migrated = true;
       await this._knex.transaction(async (trx) => {
         for (const sql of MIGRATIONS) await trx.raw(sql);
+      });
+      this.eventService.register(async (session, chatId, text, direction) => {
+        if (direction !== 'incoming') return;
+        const reply = await this.processIncomingMessage(session, text);
+        if (reply && this._manager) {
+          const whatsapp = await this._manager.getWorkingSession(session);
+          await whatsapp.sendText({ session, chatId, text: reply } as any);
+        }
       });
     }
     return this._knex;

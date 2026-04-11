@@ -31,6 +31,11 @@ import { AutoReplyController } from './autoreply.controller';
 import { AutoReplyService } from './autoreply.service';
 import { WahaMcpController } from './mcp/waha.mcp.controller';
 import { EngineSwitchController } from './engine.switch.controller';
+import { MessageEventService } from './message.event.service';
+import { MessageLogService } from './message.log.service';
+import { MessageLogController } from './message.log.controller';
+import { AnalyticsService } from './analytics.service';
+import { AnalyticsController } from './analytics.controller';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -66,6 +71,9 @@ const PROVIDERS = [
   ScheduleService,
   TemplatesService,
   AutoReplyService,
+  MessageEventService,
+  MessageLogService,
+  AnalyticsService,
 ];
 
 @Module({
@@ -82,6 +90,8 @@ const PROVIDERS = [
     ScheduleController,
     TemplatesController,
     AutoReplyController,
+    MessageLogController,
+    AnalyticsController,
     WahaMcpController,
     EngineSwitchController,
   ],
