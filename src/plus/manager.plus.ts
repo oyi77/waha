@@ -238,17 +238,24 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
       ignore: this.ignoreChatsConfig(config),
     };
 
-    if (this.EngineClass === WhatsappSessionWebJSCore) {
+    // Per-session engine override: use config.engine if specified, else fallback to server default
+    const perSessionEngine: WAHAEngine | undefined =
+      (config as any)?.engine as WAHAEngine | undefined;
+    const EngineClass = perSessionEngine
+      ? this.getEngine(perSessionEngine)
+      : this.EngineClass;
+
+    if (EngineClass === WhatsappSessionWebJSCore) {
       sessionConfig.engineConfig = this.webjsEngineConfigService.getConfig();
-    } else if (this.EngineClass === WhatsappSessionWPPCore) {
+    } else if (EngineClass === WhatsappSessionWPPCore) {
       sessionConfig.engineConfig = this.wppEngineConfigService.getConfig();
-    } else if (this.EngineClass === WhatsappSessionGoWSCore) {
+    } else if (EngineClass === WhatsappSessionGoWSCore) {
       sessionConfig.engineConfig = this.gowsConfigService.getConfig();
     }
 
     await this.sessionAuthRepository.init(name);
     // @ts-ignore
-    const session = new this.EngineClass(sessionConfig);
+    const session = new EngineClass(sessionConfig);
     this.sessions.set(name, session);
     this.updateSessionEvents(name);
 

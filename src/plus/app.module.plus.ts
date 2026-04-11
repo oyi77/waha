@@ -30,6 +30,7 @@ import { TemplatesService } from './templates.service';
 import { AutoReplyController } from './autoreply.controller';
 import { AutoReplyService } from './autoreply.service';
 import { WahaMcpController } from './mcp/waha.mcp.controller';
+import { EngineSwitchController } from './engine.switch.controller';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -82,6 +83,7 @@ const PROVIDERS = [
     TemplatesController,
     AutoReplyController,
     WahaMcpController,
+    EngineSwitchController,
   ],
   providers: PROVIDERS,
 })
