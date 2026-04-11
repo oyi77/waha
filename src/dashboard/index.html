@@ -1053,15 +1053,43 @@
         <td class="px-4 py-3"><span class="badge badge-blue">${escHtml(String(engine))}</span></td>
         <td class="px-4 py-3">
           <div class="flex items-center justify-end gap-1">
-            <button title="Start" onclick="sessionAction('start','${escAttr(name)}')" class="btn-icon text-green-600 hover:text-green-400">▶</button>
-            <button title="Stop" onclick="sessionAction('stop','${escAttr(name)}')" class="btn-icon text-yellow-600 hover:text-yellow-400">⏹</button>
-            <button title="Restart" onclick="sessionAction('restart','${escAttr(name)}')" class="btn-icon text-blue-600 hover:text-blue-400">🔄</button>
-            <button title="Show QR" onclick="openQrModal('${escAttr(name)}')" class="btn-icon hover:text-green-400">📱</button>
-            <button title="Delete" onclick="deleteSession('${escAttr(name)}')" class="btn-danger py-1 px-2 text-xs">🗑</button>
+            ${sessionActionButtons(name, status)}
           </div>
         </td>
       </tr>`;
     }).join('');
+  }
+
+  function sessionActionButtons(name, status) {
+    const s = (status || '').toUpperCase();
+    const n = escAttr(name);
+    const isRunning  = ['WORKING', 'AUTHENTICATED', 'ONLINE'].includes(s);
+    const isStopped  = ['STOPPED', 'FAILED'].includes(s);
+    const isStarting = ['STARTING'].includes(s);
+    const isQr       = s === 'SCAN_QR_CODE';
+
+    let primaryBtn = '';
+    if (isRunning || isStarting) {
+      primaryBtn = `<button title="Stop" onclick="sessionAction('stop','${n}')" class="btn-icon text-yellow-600 hover:text-yellow-400">⏹</button>`;
+    } else if (isStopped) {
+      primaryBtn = `<button title="Start" onclick="sessionAction('start','${n}')" class="btn-icon text-green-600 hover:text-green-400">▶</button>`;
+    } else if (isQr) {
+      primaryBtn = `<button title="Show QR" onclick="openQrModal('${n}')" class="btn-icon hover:text-green-400">📱</button>`;
+    } else {
+      // UNKNOWN or any other state — offer start
+      primaryBtn = `<button title="Start" onclick="sessionAction('start','${n}')" class="btn-icon text-green-600 hover:text-green-400">▶</button>`;
+    }
+
+    const qrBtn = isQr
+      ? `<button title="Show QR" onclick="openQrModal('${n}')" class="btn-icon hover:text-green-400">📱</button>`
+      : '';
+
+    return `
+      ${primaryBtn}
+      ${qrBtn}
+      <button title="Restart" onclick="sessionAction('restart','${n}')" class="btn-icon text-blue-600 hover:text-blue-400">🔄</button>
+      <button title="Delete" onclick="deleteSession('${n}')" class="btn-danger py-1 px-2 text-xs">🗑</button>
+    `;
   }
 
   function renderSessionsError() {
