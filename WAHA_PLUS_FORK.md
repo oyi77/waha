@@ -138,6 +138,25 @@ WAHA_PLUS_FORK.md            # This file
 
 If you find WAHA useful, consider supporting the original authors at https://waha.devlike.pro/support-us
 
+## 🤝 Contributing
+
+### Commit Format
+
+This repo enforces commit message format via `.precommit/validate_commit_message.py`:
+
+| Change touches | Required prefix | Example |
+|----------------|----------------|---------|
+| `src/plus/**` only | `[PLUS]` | `[PLUS] add voice status endpoint` |
+| Everything else | `[core]` | `[core] fix session timeout` |
+
+> ⚠️ Commits with `feat(plus):` or `fix(plus):` style will be **rejected** by the hook. Always use `[PLUS]` or `[core]` prefixes.
+
+To install the hook locally:
+```bash
+cp .precommit/validate_commit_message.py .git/hooks/commit-msg
+chmod +x .git/hooks/commit-msg
+```
+
 ---
 
 *Fork maintained by [oyi77](https://github.com/oyi77)*

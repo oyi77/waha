@@ -1221,7 +1221,7 @@
     try {
       const key = getApiKey();
       const headers = key ? { 'X-Api-Key': key } : {};
-      const resp = await fetch(`/api/${encodeURIComponent(sessionName)}/auth/qr?format=image`, { headers });
+      const resp = await fetch(`/api/${encodeURIComponent(sessionName)}/auth/qr?format=image&t=${Date.now()}`, { headers, cache: 'no-store' });
       if (resp.status === 401 || resp.status === 403) {
         highlightApiKeyInput();
         content.innerHTML = `<p class="text-sm" style="color:#f87171;">Unauthorized. Check API key.</p>`;

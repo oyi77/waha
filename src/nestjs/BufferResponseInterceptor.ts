@@ -56,6 +56,7 @@ export class BufferResponseInterceptor<T>
     response.set({
       'Content-Type': this.mimetype,
       'Content-Length': buffer.length,
+      'Cache-Control': 'no-cache, no-store',
     });
     if (this.filename) {
       response.set({
