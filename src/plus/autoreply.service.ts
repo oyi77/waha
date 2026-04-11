@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
 import Knex from 'knex';
@@ -70,10 +70,21 @@ function matchesRule(rule: AutoReplyRule, text: string): boolean {
   }
 }
 
+function validateRegexKeyword(keyword: string): void {
+  if (keyword.length > 500) {
+    throw new BadRequestException('Regex keyword must be 500 characters or fewer');
+  }
+  try {
+    new RegExp(keyword);
+  } catch {
+    throw new BadRequestException('Invalid regex pattern');
+  }
+}
+
 @Injectable()
 export class AutoReplyService {
   private _knex: Knex.Knex | null = null;
-  private _migrated = false;
+  private _migrationPromise: Promise<void> | null = null;
   private _manager: SessionManager | null = null;
 
   constructor(private eventService: MessageEventService) {}
@@ -89,21 +100,25 @@ export class AutoReplyService {
       }
       this._knex = this._manager.store.getWAHADatabase();
     }
-    if (!this._migrated) {
-      this._migrated = true;
-      await this._knex.transaction(async (trx) => {
-        for (const sql of MIGRATIONS) await trx.raw(sql);
-      });
-      this.eventService.register(async (session, chatId, text, direction) => {
-        if (direction !== 'incoming') return;
-        const reply = await this.processIncomingMessage(session, text);
-        if (reply && this._manager) {
-          const whatsapp = await this._manager.getWorkingSession(session);
-          await whatsapp.sendText({ session, chatId, text: reply } as any);
-        }
-      });
+    if (!this._migrationPromise) {
+      this._migrationPromise = this._runMigrations();
     }
+    await this._migrationPromise;
     return this._knex;
+  }
+
+  private async _runMigrations(): Promise<void> {
+    await this._knex!.transaction(async (trx) => {
+      for (const sql of MIGRATIONS) await trx.raw(sql);
+    });
+    this.eventService.register(async (session, chatId, text, direction) => {
+      if (direction !== 'incoming') return;
+      const reply = await this.processIncomingMessage(session, text);
+      if (reply && this._manager) {
+        const whatsapp = await this._manager.getWorkingSession(session);
+        await whatsapp.sendText({ session, chatId, text: reply } as any);
+      }
+    });
   }
 
   async create(dto: {
@@ -113,6 +128,12 @@ export class AutoReplyService {
     replyText: string;
     isActive?: boolean;
   }): Promise<AutoReplyRule> {
+    if (dto.keyword.length > 500) {
+      throw new BadRequestException('Keyword must be 500 characters or fewer');
+    }
+    if ((dto.matchType ?? 'contains') === 'regex') {
+      validateRegexKeyword(dto.keyword);
+    }
     const knex = await this.db();
     const id = generatePrefixedId('rule');
     const row: AutoReplyRow = {
@@ -153,6 +174,23 @@ export class AutoReplyService {
       isActive: boolean;
     }>,
   ): Promise<AutoReplyRule | null> {
+    if (dto.keyword !== undefined && dto.keyword.length > 500) {
+      throw new BadRequestException('Keyword must be 500 characters or fewer');
+    }
+    if (dto.matchType === 'regex' || (dto.matchType === undefined && dto.keyword !== undefined)) {
+      // If matchType is being set to regex, or keyword is updated without changing matchType,
+      // we need the current rule to know the effective matchType.
+      if (dto.matchType === 'regex') {
+        const keyword = dto.keyword;
+        if (keyword !== undefined) {
+          validateRegexKeyword(keyword);
+        }
+      }
+    }
+    // If matchType becomes 'regex' and keyword is also being set, validate
+    if (dto.matchType === 'regex' && dto.keyword !== undefined) {
+      validateRegexKeyword(dto.keyword);
+    }
     const knex = await this.db();
     const updates: Partial<AutoReplyRow> = {};
     if (dto.keyword !== undefined) updates.keyword = dto.keyword;

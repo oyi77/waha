@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 export type MessageDirection = 'incoming' | 'outgoing';
 
@@ -12,6 +12,7 @@ export type MessageHandler = (
 
 @Injectable()
 export class MessageEventService {
+  private readonly logger = new Logger(MessageEventService.name);
   private handlers: MessageHandler[] = [];
 
   register(handler: MessageHandler) {
@@ -24,9 +25,15 @@ export class MessageEventService {
     text: string,
     direction: MessageDirection = 'incoming',
     raw?: any,
-  ) {
-    for (const h of this.handlers) {
-      await h(session, chatId, text, direction, raw).catch(() => {});
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      this.handlers.map((h) => h(session, chatId, text, direction, raw)),
+    );
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === 'rejected') {
+        this.logger.error(`MessageEventService handler[${i}] error: ${r.reason?.message ?? r.reason}`);
+      }
     }
   }
 }

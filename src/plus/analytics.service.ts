@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { SessionManager } from '@waha/core/abc/manager.abc';
-import { generatePrefixedId } from '@waha/utils/ids';
 import Knex from 'knex';
 
 const TABLE = 'analytics_counter';
@@ -44,18 +43,10 @@ interface CounterRow {
   value: number;
 }
 
-function todayISO(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 @Injectable()
 export class AnalyticsService {
   private _knex: Knex.Knex | null = null;
-  private _migrated = false;
+  private _migrationPromise: Promise<void> | null = null;
   private _manager: SessionManager | null = null;
 
   constructor() {}
@@ -71,13 +62,25 @@ export class AnalyticsService {
       }
       this._knex = this._manager.store.getWAHADatabase();
     }
-    if (!this._migrated) {
-      this._migrated = true;
-      await this._knex.transaction(async (trx) => {
-        for (const sql of MIGRATIONS) await trx.raw(sql);
-      });
+    if (!this._migrationPromise) {
+      this._migrationPromise = this._runMigrations();
     }
+    await this._migrationPromise;
     return this._knex;
+  }
+
+  private async _runMigrations(): Promise<void> {
+    await this._knex!.transaction(async (trx) => {
+      for (const sql of MIGRATIONS) await trx.raw(sql);
+    });
+  }
+
+  private todayISO(): string {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(now.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   async increment(
@@ -86,28 +89,13 @@ export class AnalyticsService {
     amount = 1,
   ): Promise<void> {
     const knex = await this.db();
-    const date = todayISO();
-    // Try to update; if no row exists, insert.
-    const updated = await knex(TABLE)
-      .where({ session, date, metric })
-      .increment('value', amount);
-    if (!updated) {
-      const row: CounterRow = {
-        id: generatePrefixedId('ac'),
-        session,
-        date,
-        metric,
-        value: amount,
-      };
-      try {
-        await knex(TABLE).insert(row);
-      } catch {
-        // Race condition — another writer inserted first. Retry update.
-        await knex(TABLE)
-          .where({ session, date, metric })
-          .increment('value', amount);
-      }
-    }
+    const date = this.todayISO();
+    await knex.raw(
+      `INSERT INTO ${TABLE} (session, date, metric, value)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(session, date, metric) DO UPDATE SET value = value + excluded.value`,
+      [session, date, metric, amount],
+    );
   }
 
   async getDailyStats(session?: string, days = 30): Promise<DailyStat[]> {

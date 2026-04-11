@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
 import Knex from 'knex';
@@ -62,10 +62,12 @@ function rowToMessage(row: ScheduledRow): ScheduledMessage {
 }
 
 @Injectable()
-export class ScheduleService {
+export class ScheduleService implements OnModuleDestroy {
   private readonly logger = new Logger(ScheduleService.name);
   private _knex: Knex.Knex | null = null;
-  private _migrated = false;
+  private _migrationPromise: Promise<void> | null = null;
+  private _running = false;
+  private _timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private manager: SessionManager) {}
 
@@ -73,66 +75,88 @@ export class ScheduleService {
     if (!this._knex) {
       this._knex = this.manager.store.getWAHADatabase();
     }
-    if (!this._migrated) {
-      this._migrated = true;
-      await this._knex.transaction(async (trx) => {
-        for (const sql of MIGRATIONS) await trx.raw(sql);
-      });
-      this.startRunner();
+    if (!this._migrationPromise) {
+      this._migrationPromise = this._runMigrations();
     }
+    await this._migrationPromise;
     return this._knex;
   }
 
+  private async _runMigrations(): Promise<void> {
+    await this._knex!.transaction(async (trx) => {
+      for (const sql of MIGRATIONS) await trx.raw(sql);
+    });
+    this.startRunner();
+  }
+
+  onModuleDestroy() {
+    if (this._timer) clearInterval(this._timer);
+  }
+
   private startRunner() {
-    setInterval(() => this.runPending().catch((e) => this.logger.error(e)), 10_000);
+    this._timer = setInterval(() => this.runPending().catch((e) => this.logger.error(e)), 10_000);
   }
 
   private async runPending() {
-    const knex = await this.db();
-    const now = Date.now();
-    const rows: ScheduledRow[] = await knex(TABLE)
-      .where({ status: 'pending' })
-      .where('scheduledAt', '<=', now)
-      .select('*');
+    if (this._running) return;
+    this._running = true;
+    try {
+      const knex = await this.db();
+      const now = Date.now();
+      const rows: ScheduledRow[] = await knex(TABLE)
+        .where({ status: 'pending' })
+        .where('scheduledAt', '<=', now)
+        .limit(50)
+        .orderBy('scheduledAt', 'asc')
+        .select('*');
 
-    for (const row of rows) {
-      const msg = rowToMessage(row);
-      try {
-        const whatsapp = await this.manager.getWorkingSession(msg.session);
-        const req: any = { chatId: msg.chatId, session: msg.session, ...msg.payload };
+      for (const row of rows) {
+        const msg = rowToMessage(row);
+        // Atomically claim the row to prevent double-send
+        const claimed = await knex(TABLE)
+          .where({ id: msg.id, status: 'pending' })
+          .update({ status: 'sending' });
+        if (claimed === 0) continue;
 
-        switch (msg.type) {
-          case 'text':
-            await whatsapp.sendText(req);
-            break;
-          case 'image':
-            await whatsapp.sendImage(req);
-            break;
-          case 'file':
-            await whatsapp.sendFile(req);
-            break;
-          case 'video':
-            await whatsapp.sendVideo(req);
-            break;
-          case 'voice':
-            await whatsapp.sendVoice(req);
-            break;
-          default:
-            throw new Error(`Unknown message type: ${msg.type}`);
+        try {
+          const whatsapp = await this.manager.getWorkingSession(msg.session);
+          const req: any = { chatId: msg.chatId, session: msg.session, ...msg.payload };
+
+          switch (msg.type) {
+            case 'text':
+              await whatsapp.sendText(req);
+              break;
+            case 'image':
+              await whatsapp.sendImage(req);
+              break;
+            case 'file':
+              await whatsapp.sendFile(req);
+              break;
+            case 'video':
+              await whatsapp.sendVideo(req);
+              break;
+            case 'voice':
+              await whatsapp.sendVoice(req);
+              break;
+            default:
+              throw new Error(`Unknown message type: ${msg.type}`);
+          }
+
+          await knex(TABLE).where({ id: msg.id }).update({
+            status: 'sent',
+            sentAt: Date.now(),
+          });
+          this.logger.log(`Scheduled message ${msg.id} sent`);
+        } catch (err: any) {
+          await knex(TABLE).where({ id: msg.id }).update({
+            status: 'failed',
+            error: err?.message ?? String(err),
+          });
+          this.logger.error(`Scheduled message ${msg.id} failed: ${err?.message}`);
         }
-
-        await knex(TABLE).where({ id: msg.id }).update({
-          status: 'sent',
-          sentAt: Date.now(),
-        });
-        this.logger.log(`Scheduled message ${msg.id} sent`);
-      } catch (err: any) {
-        await knex(TABLE).where({ id: msg.id }).update({
-          status: 'failed',
-          error: err?.message ?? String(err),
-        });
-        this.logger.error(`Scheduled message ${msg.id} failed: ${err?.message}`);
       }
+    } finally {
+      this._running = false;
     }
   }
 
@@ -147,6 +171,10 @@ export class ScheduleService {
     const id = generatePrefixedId('sched');
     const now = Date.now();
     const scheduledAt = new Date(dto.scheduledAt).getTime();
+
+    if (!Number.isFinite(scheduledAt)) {
+      throw new Error(`Invalid scheduledAt date: ${dto.scheduledAt}`);
+    }
 
     const row: ScheduledRow = {
       id,

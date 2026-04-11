@@ -12,6 +12,8 @@ import { PoliciesGuard } from '@waha/core/auth/policies.guard';
 import { CheckPolicies } from '@waha/core/auth/policies.decorator';
 import { CanServer } from '@waha/core/auth/policies';
 import { Action } from '@waha/core/auth/casl.types';
+import { ScheduleService } from '@waha/plus/schedule.service';
+import { TemplatesService } from '@waha/plus/templates.service';
 
 const TOOLS = [
   {
@@ -212,10 +214,11 @@ const TOOLS = [
 @ApiTags('🤖 MCP Server')
 @UseGuards(PoliciesGuard)
 export class WahaMcpController {
-  // Shared MCP server + transport (stateless per-request)
-  private _mcpServer: Server | null = null;
-
-  constructor(private manager: SessionManager) {}
+  constructor(
+    private manager: SessionManager,
+    private scheduleService: ScheduleService,
+    private templatesService: TemplatesService,
+  ) {}
 
   private createMcpServer(): Server {
     const server = new Server(
@@ -275,7 +278,7 @@ export class WahaMcpController {
       }
 
       case 'waha_start_session': {
-        const { session, engine } = args;
+        const { session } = args;
         return this.manager.start(session);
       }
 
@@ -316,25 +319,18 @@ export class WahaMcpController {
 
       case 'waha_create_schedule': {
         const { session, chatId, text, scheduledAt } = args;
-        // POST to schedule endpoint via internal fetch
-        const host = process.env.WAHA_PUBLIC_URL ?? 'http://localhost:3000';
-        const response = await fetch(`${host}/api/schedule`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session, chatId, type: 'text', payload: { text }, scheduledAt }),
-        });
-        return response.json();
+        return this.scheduleService.create({ session, chatId, type: 'text', payload: { text }, scheduledAt });
       }
 
       case 'waha_send_from_template': {
         const { session, chatId, templateName } = args;
-        const host = process.env.WAHA_PUBLIC_URL ?? 'http://localhost:3000';
-        const response = await fetch(`${host}/api/templates/${encodeURIComponent(templateName)}/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session, chatId }),
-        });
-        return response.json();
+        const template = await this.templatesService.getByName(templateName);
+        if (!template) throw new Error(`Template not found: ${templateName}`);
+        const whatsapp = await this.manager.getWorkingSession(session);
+        if (template.type === 'text' && template.payload.text) {
+          return whatsapp.sendText({ chatId, session, text: template.payload.text });
+        }
+        throw new Error(`Cannot send template type: ${template.type} via MCP`);
       }
 
       case 'waha_broadcast_text': {
@@ -370,15 +366,8 @@ export class WahaMcpController {
     }
   }
 
-  private getMcpServer(): Server {
-    if (!this._mcpServer) {
-      this._mcpServer = this.createMcpServer();
-    }
-    return this._mcpServer;
-  }
-
   @All('/mcp')
-  @CheckPolicies(CanServer(Action.Read))
+  @CheckPolicies(CanServer(Action.Manage))
   @ApiOperation({
     summary: 'MCP endpoint — connect AI assistants to WAHA via Streamable HTTP',
     description:
@@ -387,11 +376,10 @@ export class WahaMcpController {
       'Both GET (SSE stream) and POST (JSON-RPC) are handled on this single endpoint.',
   })
   async mcpHandler(@Req() req: Request, @Res() res: Response) {
+    const server = this.createMcpServer();
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () =>
-        `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      sessionIdGenerator: () => `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     });
-    const server = this.getMcpServer();
     await server.connect(transport);
     await transport.handleRequest(req as any, res as any, req.body);
   }

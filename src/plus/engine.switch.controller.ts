@@ -14,6 +14,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Post,
   UseGuards,
@@ -177,7 +178,10 @@ export class EngineSwitchController {
   ): Promise<{ session: string; engine: string }> {
     const sessions = await this.manager.getSessions(true);
     const session = sessions.find((s) => s.name === name);
-    const engine = (session?.config as any)?.engine ?? process.env.WHATSAPP_DEFAULT_ENGINE ?? WAHAEngine.NOWEB;
+    if (!session) {
+      throw new NotFoundException(`Session not found: ${name}`);
+    }
+    const engine = (session.config as any)?.engine ?? process.env.WHATSAPP_DEFAULT_ENGINE ?? WAHAEngine.NOWEB;
     return { session: name, engine };
   }
 
@@ -195,15 +199,28 @@ export class EngineSwitchController {
     @Body() body: SwitchEngineRequest,
   ): Promise<SwitchEngineResponse> {
     // Stop the session if it's running
+    const sessions = await this.manager.getSessions(true);
+    const session = sessions.find((s) => s.name === name);
+    const oldEngine = (session?.config as any)?.engine;
+
     try {
       await this.manager.stop(name, true);
     } catch {
       // ignore if not running
     }
 
-    // Save new engine in config, then start
-    await this.manager.upsert(name, { engine: body.engine } as any);
-    await this.manager.start(name);
+    // Save new engine in config, then start with rollback on failure
+    try {
+      await this.manager.upsert(name, { engine: body.engine } as any);
+      await this.manager.start(name);
+    } catch (err) {
+      try {
+        await this.manager.upsert(name, { engine: oldEngine } as any);
+      } catch {
+        // ignore rollback errors
+      }
+      throw err;
+    }
 
     return {
       session: name,
