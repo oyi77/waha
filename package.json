@@ -21,7 +21,7 @@
     "test:cov": "jest --selectProjects unit --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --selectProjects unit --runInBand",
     "test:unit": "jest --selectProjects unit",
-    "test:e2e": "jest --selectProjects e2e",
+    "test:e2e": "jest --selectProjects e2e --forceExit",
     "test:e8e": "yarn test:e2e",
     "test:all": "yarn test:unit && yarn test:e8e",
     "gows:proto:fetch": "node scripts/gows-proto.js fetch",
@@ -190,6 +190,9 @@
         "moduleNameMapper": {
           "^@waha/(.*)$": "<rootDir>/$1"
         },
+        "setupFiles": [
+          "<rootDir>/__tests__/e2e/setup.ts"
+        ],
         "testRegex": "__tests__/e2e/.*\\.test\\.ts$",
         "transform": {
           "^.+\\.(t|j)s$": "ts-jest"
