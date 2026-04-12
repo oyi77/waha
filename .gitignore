@@ -20,6 +20,10 @@ test.js
 .wwebjs_cache
 src/dashboard/
 !src/dashboard/index.html
+!src/dashboard/login.html
+!src/dashboard/plus-nav.js
+!src/dashboard/plus/
+!src/dashboard/plus/**
 .eslintcache
 __pycache__
 
