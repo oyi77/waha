@@ -58,6 +58,7 @@ import { AnalyticsService } from './analytics.service';
 import { AutoReplyService } from './autoreply.service';
 import { MessageEventService } from './message.event.service';
 import { MessageLogService } from './message.log.service';
+import { SettingsService } from './settings.service';
 
 const MAX_SESSIONS_ENV = 'WAHA_MAX_SESSIONS';
 
@@ -70,10 +71,7 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
   // Map: sessionName -> SessionConfig (null = no config)
   private sessionConfigMap: Map<string, SessionConfig | null>;
   // Per-session, per-event reactive streams
-  private eventsMap: Map<
-    string,
-    DefaultMap<WAHAEvents, SwitchObservable<any>>
-  >;
+  private eventsMap: Map<string, DefaultMap<WAHAEvents, SwitchObservable<any>>>;
 
   protected readonly EngineClass: typeof WhatsappSession;
   protected readonly engineBootstrap: EngineBootstrap;
@@ -94,6 +92,7 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     @Optional() private autoReplyService?: AutoReplyService,
     @Optional() private messageLogService?: MessageLogService,
     @Optional() private analyticsService?: AnalyticsService,
+    @Optional() private settingsService?: SettingsService,
   ) {
     super(log, config, gowsConfigService, appsService);
     this.sessions = new Map();
@@ -122,7 +121,9 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
   private checkSessionLimit() {
     const max = parseInt(process.env[MAX_SESSIONS_ENV] || '0', 10);
     if (max <= 0) return; // 0 = unlimited
-    const running = [...this.sessions.values()].filter((s) => s !== null).length;
+    const running = [...this.sessions.values()].filter(
+      (s) => s !== null,
+    ).length;
     if (running >= max) {
       throw new UnprocessableEntityException(
         `Session limit reached: max ${max} concurrent sessions allowed. ` +
@@ -140,8 +141,7 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
       this.eventsMap.set(
         name,
         new DefaultMap<WAHAEvents, SwitchObservable<any>>(
-          () =>
-            new SwitchObservable((obs$) => obs$.pipe(retry(), share())),
+          () => new SwitchObservable((obs$) => obs$.pipe(retry(), share())),
         ),
       );
     }
@@ -248,8 +248,9 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     };
 
     // Per-session engine override: use config.engine if specified, else fallback to server default
-    const perSessionEngine: WAHAEngine | undefined =
-      (config as any)?.engine as WAHAEngine | undefined;
+    const perSessionEngine: WAHAEngine | undefined = (config as any)?.engine as
+      | WAHAEngine
+      | undefined;
     const EngineClass = perSessionEngine
       ? this.getEngine(perSessionEngine)
       : this.EngineClass;
@@ -492,6 +493,7 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     if (this.autoReplyService) this.autoReplyService.setManager(this);
     if (this.messageLogService) this.messageLogService.setManager(this);
     if (this.analyticsService) this.analyticsService.setManager(this);
+    if (this.settingsService) this.settingsService.setManager(this);
   }
 
   // ─── Plus: Message Event Subscription ────────────────────────────────────────
@@ -591,7 +593,9 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
 
   private async restartWorkerSessions() {
     if (!this.config.shouldRestartWorkerSessions) {
-      this.log.info('Worker session auto-restart is disabled (WAHA_WORKER_RESTART_SESSIONS=false)');
+      this.log.info(
+        'Worker session auto-restart is disabled (WAHA_WORKER_RESTART_SESSIONS=false)',
+      );
       return;
     }
     if (!this.sessionWorkerRepository) return;

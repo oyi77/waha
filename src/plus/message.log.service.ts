@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
-import Knex from 'knex';
+
+import { AbstractKnexService } from './AbstractKnexService';
 
 const TABLE = 'message_log';
 
@@ -71,31 +71,13 @@ function rowToEntry(row: MessageLogRow): MessageLogEntry {
 }
 
 @Injectable()
-export class MessageLogService {
-  private _knex: Knex.Knex | null = null;
-  private _migrated = false;
-  private _manager: SessionManager | null = null;
-
-  constructor() {}
-
-  setManager(m: SessionManager) {
-    this._manager = m;
+export class MessageLogService extends AbstractKnexService {
+  protected get serviceName() {
+    return 'MessageLogService';
   }
 
-  private async db(): Promise<Knex.Knex> {
-    if (!this._knex) {
-      if (!this._manager) {
-        throw new Error('MessageLogService: SessionManager not set');
-      }
-      this._knex = this._manager.store.getWAHADatabase();
-    }
-    if (!this._migrated) {
-      this._migrated = true;
-      await this._knex.transaction(async (trx) => {
-        for (const sql of MIGRATIONS) await trx.raw(sql);
-      });
-    }
-    return this._knex;
+  protected get migrations() {
+    return MIGRATIONS;
   }
 
   async log(entry: {
@@ -145,7 +127,12 @@ export class MessageLogService {
 
   async stats(
     session?: string,
-  ): Promise<{ total: number; incoming: number; outgoing: number; today: number }> {
+  ): Promise<{
+    total: number;
+    incoming: number;
+    outgoing: number;
+    today: number;
+  }> {
     const knex = await this.db();
     const baseWhere: Record<string, any> = {};
     if (session) baseWhere.session = session;

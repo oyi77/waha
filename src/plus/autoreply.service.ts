@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
-import Knex from 'knex';
 
+import { AbstractKnexService } from './AbstractKnexService';
 import { MessageEventService } from './message.event.service';
 
 const TABLE = 'autoreply_rule';
@@ -72,7 +72,9 @@ function matchesRule(rule: AutoReplyRule, text: string): boolean {
 
 function validateRegexKeyword(keyword: string): void {
   if (keyword.length > 500) {
-    throw new BadRequestException('Regex keyword must be 500 characters or fewer');
+    throw new BadRequestException(
+      'Regex keyword must be 500 characters or fewer',
+    );
   }
   try {
     new RegExp(keyword);
@@ -82,40 +84,33 @@ function validateRegexKeyword(keyword: string): void {
 }
 
 @Injectable()
-export class AutoReplyService {
-  private _knex: Knex.Knex | null = null;
-  private _migrationPromise: Promise<void> | null = null;
-  private _manager: SessionManager | null = null;
+export class AutoReplyService extends AbstractKnexService {
+  private _sessionManager: SessionManager | null = null;
 
-  constructor(private eventService: MessageEventService) {}
-
-  setManager(m: SessionManager) {
-    this._manager = m;
+  constructor(private eventService: MessageEventService) {
+    super();
   }
 
-  private async db(): Promise<Knex.Knex> {
-    if (!this._knex) {
-      if (!this._manager) {
-        throw new Error('AutoReplyService: SessionManager not set');
-      }
-      this._knex = this._manager.store.getWAHADatabase();
-    }
-    if (!this._migrationPromise) {
-      this._migrationPromise = this._runMigrations();
-    }
-    await this._migrationPromise;
-    return this._knex;
+  protected get serviceName() {
+    return 'AutoReplyService';
   }
 
-  private async _runMigrations(): Promise<void> {
-    await this._knex!.transaction(async (trx) => {
-      for (const sql of MIGRATIONS) await trx.raw(sql);
-    });
+  protected get migrations() {
+    return MIGRATIONS;
+  }
+
+  override setManager(m: SessionManager): void {
+    super.setManager(m);
+    this._sessionManager = m;
+  }
+
+  protected override async _runMigrations(): Promise<void> {
+    await super._runMigrations();
     this.eventService.register(async (session, chatId, text, direction) => {
       if (direction !== 'incoming') return;
       const reply = await this.processIncomingMessage(session, text);
-      if (reply && this._manager) {
-        const whatsapp = await this._manager.getWorkingSession(session);
+      if (reply && this._sessionManager) {
+        const whatsapp = await this._sessionManager.getWorkingSession(session);
         await whatsapp.sendText({ session, chatId, text: reply } as any);
       }
     });
@@ -161,7 +156,9 @@ export class AutoReplyService {
 
   async get(id: string): Promise<AutoReplyRule | null> {
     const knex = await this.db();
-    const row: AutoReplyRow | undefined = await knex(TABLE).where({ id }).first();
+    const row: AutoReplyRow | undefined = await knex(TABLE)
+      .where({ id })
+      .first();
     return row ? rowToRule(row) : null;
   }
 
@@ -177,21 +174,22 @@ export class AutoReplyService {
     if (dto.keyword !== undefined && dto.keyword.length > 500) {
       throw new BadRequestException('Keyword must be 500 characters or fewer');
     }
-    if (dto.matchType === 'regex' || (dto.matchType === undefined && dto.keyword !== undefined)) {
-      // If matchType is being set to regex, or keyword is updated without changing matchType,
-      // we need the current rule to know the effective matchType.
-      if (dto.matchType === 'regex') {
-        const keyword = dto.keyword;
-        if (keyword !== undefined) {
-          validateRegexKeyword(keyword);
-        }
+    const knex = await this.db();
+
+    // Determine the effective matchType after the update is applied so we can
+    // validate the keyword when the rule ends up as 'regex'.
+    let effectiveMatchType = dto.matchType;
+    if (effectiveMatchType === undefined || dto.keyword !== undefined) {
+      const existing = await knex(TABLE).where({ id }).first();
+      if (!existing) return null;
+      if (effectiveMatchType === undefined) {
+        effectiveMatchType = existing.matchType;
       }
     }
-    // If matchType becomes 'regex' and keyword is also being set, validate
-    if (dto.matchType === 'regex' && dto.keyword !== undefined) {
-      validateRegexKeyword(dto.keyword);
+    const effectiveKeyword = dto.keyword;
+    if (effectiveMatchType === 'regex' && effectiveKeyword !== undefined) {
+      validateRegexKeyword(effectiveKeyword);
     }
-    const knex = await this.db();
     const updates: Partial<AutoReplyRow> = {};
     if (dto.keyword !== undefined) updates.keyword = dto.keyword;
     if (dto.matchType !== undefined) updates.matchType = dto.matchType;
@@ -220,7 +218,10 @@ export class AutoReplyService {
     return null;
   }
 
-  async getMatchingRules(session: string, text: string): Promise<AutoReplyRule[]> {
+  async getMatchingRules(
+    session: string,
+    text: string,
+  ): Promise<AutoReplyRule[]> {
     const rules = await this.list(session);
     return rules.filter((rule) => rule.isActive && matchesRule(rule, text));
   }

@@ -52,7 +52,7 @@ function rowToTemplate(row: TemplateRow): MessageTemplate {
 @Injectable()
 export class TemplatesService {
   private _knex: Knex.Knex | null = null;
-  private _migrated = false;
+  private _migrationPromise: Promise<void> | null = null;
 
   constructor(private manager: SessionManager) {}
 
@@ -60,12 +60,12 @@ export class TemplatesService {
     if (!this._knex) {
       this._knex = this.manager.store.getWAHADatabase();
     }
-    if (!this._migrated) {
-      this._migrated = true;
-      await this._knex.transaction(async (trx) => {
+    if (!this._migrationPromise) {
+      this._migrationPromise = this._knex.transaction(async (trx) => {
         for (const sql of MIGRATIONS) await trx.raw(sql);
       });
     }
+    await this._migrationPromise;
     return this._knex;
   }
 
@@ -93,31 +93,43 @@ export class TemplatesService {
 
   async list(): Promise<MessageTemplate[]> {
     const knex = await this.db();
-    const rows: TemplateRow[] = await knex(TABLE).select('*').orderBy('createdAt', 'asc');
+    const rows: TemplateRow[] = await knex(TABLE)
+      .select('*')
+      .orderBy('createdAt', 'asc');
     return rows.map(rowToTemplate);
   }
 
   async get(id: string): Promise<MessageTemplate | null> {
     const knex = await this.db();
-    const row: TemplateRow | undefined = await knex(TABLE).where({ id }).first();
+    const row: TemplateRow | undefined = await knex(TABLE)
+      .where({ id })
+      .first();
     return row ? rowToTemplate(row) : null;
   }
 
   async getByName(name: string): Promise<MessageTemplate | null> {
     const knex = await this.db();
-    const row: TemplateRow | undefined = await knex(TABLE).where({ name }).first();
+    const row: TemplateRow | undefined = await knex(TABLE)
+      .where({ name })
+      .first();
     return row ? rowToTemplate(row) : null;
   }
 
   async update(
     id: string,
-    dto: Partial<{ name: string; type: string; payload: Record<string, any>; tags: string[] }>,
+    dto: Partial<{
+      name: string;
+      type: string;
+      payload: Record<string, any>;
+      tags: string[];
+    }>,
   ): Promise<MessageTemplate | null> {
     const knex = await this.db();
     const updates: Partial<TemplateRow> = { updatedAt: Date.now() };
     if (dto.name !== undefined) updates.name = dto.name;
     if (dto.type !== undefined) updates.type = dto.type;
-    if (dto.payload !== undefined) updates.payload = JSON.stringify(dto.payload);
+    if (dto.payload !== undefined)
+      updates.payload = JSON.stringify(dto.payload);
     if (dto.tags !== undefined) updates.tags = JSON.stringify(dto.tags);
 
     await knex(TABLE).where({ id }).update(updates);

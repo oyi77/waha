@@ -1,17 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { SessionManager } from '@waha/core/abc/manager.abc';
-import Knex from 'knex';
+import { AbstractKnexService } from './AbstractKnexService';
 
 const TABLE = 'analytics_counter';
 
 const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS ${TABLE} (
-    id TEXT PRIMARY KEY,
     session TEXT NOT NULL,
     date TEXT NOT NULL,
     metric TEXT NOT NULL,
     value INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(session, date, metric)
+    PRIMARY KEY(session, date, metric)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_analytics_session ON ${TABLE}(session)`,
   `CREATE INDEX IF NOT EXISTS idx_analytics_date ON ${TABLE}(date)`,
@@ -36,7 +34,6 @@ export interface AnalyticsSummary {
 }
 
 interface CounterRow {
-  id: string;
   session: string;
   date: string;
   metric: string;
@@ -44,35 +41,13 @@ interface CounterRow {
 }
 
 @Injectable()
-export class AnalyticsService {
-  private _knex: Knex.Knex | null = null;
-  private _migrationPromise: Promise<void> | null = null;
-  private _manager: SessionManager | null = null;
-
-  constructor() {}
-
-  setManager(m: SessionManager) {
-    this._manager = m;
+export class AnalyticsService extends AbstractKnexService {
+  protected get serviceName() {
+    return 'AnalyticsService';
   }
 
-  private async db(): Promise<Knex.Knex> {
-    if (!this._knex) {
-      if (!this._manager) {
-        throw new Error('AnalyticsService: SessionManager not set');
-      }
-      this._knex = this._manager.store.getWAHADatabase();
-    }
-    if (!this._migrationPromise) {
-      this._migrationPromise = this._runMigrations();
-    }
-    await this._migrationPromise;
-    return this._knex;
-  }
-
-  private async _runMigrations(): Promise<void> {
-    await this._knex!.transaction(async (trx) => {
-      for (const sql of MIGRATIONS) await trx.raw(sql);
-    });
+  protected get migrations() {
+    return MIGRATIONS;
   }
 
   private todayISO(): string {
@@ -129,17 +104,22 @@ export class AnalyticsService {
         existing.sessions_started += row.value;
       map.set(row.date, existing);
     }
-    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+    return Array.from(map.values()).sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
   }
 
   async getSummary(session?: string): Promise<AnalyticsSummary> {
     const knex = await this.db();
-    let query = knex(TABLE).select('metric').sum<{ metric: string; total: any }[]>({
-      total: 'value',
-    } as any);
+    let query = knex(TABLE)
+      .select('metric')
+      .sum<{ metric: string; total: any }[]>({
+        total: 'value',
+      } as any);
     if (session) query = query.where({ session });
     query = query.groupBy('metric');
-    const rows: { metric: string; total: number | string | null }[] = await query;
+    const rows: { metric: string; total: number | string | null }[] =
+      await query;
 
     const summary: AnalyticsSummary = {
       messages_sent: 0,
@@ -149,8 +129,10 @@ export class AnalyticsService {
     for (const row of rows) {
       const total = Number(row.total ?? 0);
       if (row.metric === 'messages_sent') summary.messages_sent = total;
-      else if (row.metric === 'messages_received') summary.messages_received = total;
-      else if (row.metric === 'sessions_started') summary.sessions_started = total;
+      else if (row.metric === 'messages_received')
+        summary.messages_received = total;
+      else if (row.metric === 'sessions_started')
+        summary.sessions_started = total;
     }
     return summary;
   }

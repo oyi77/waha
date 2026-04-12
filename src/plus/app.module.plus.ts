@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Optional } from '@nestjs/common';
 import { WAHAHealthCheckService } from '@waha/core/abc/WAHAHealthCheckService';
 import {
   AppModuleCore,
@@ -6,10 +6,13 @@ import {
   IMPORTS_CORE,
   PROVIDERS_BASE,
 } from '@waha/core/app.module.core';
+import { CredentialResolver } from '@waha/core/auth/dashboardCookieAuth';
 import { WAHAHealthCheckServiceCore } from '@waha/core/health/WAHAHealthCheckServiceCore';
 import { MediaLocalStorageModule } from '@waha/core/media/local/media.local.storage.module';
 import { MediaS3StorageModule } from '@waha/plus/media/s3/media.s3.storage.module';
 import { MediaPgStorageModule } from '@waha/plus/media/pg/media.pg.storage.module';
+import { DashboardConfigServiceCore } from '@waha/core/config/DashboardConfigServiceCore';
+import { WhatsappConfigService } from '@waha/config.service';
 import { ChannelsInfoServiceCore } from '@waha/core/services/ChannelsInfoServiceCore';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { ConfigModule } from '@nestjs/config';
@@ -36,6 +39,8 @@ import { MessageLogService } from './message.log.service';
 import { MessageLogController } from './message.log.controller';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsController } from './analytics.controller';
+import { SettingsService } from './settings.service';
+import { SettingsController } from './settings.controller';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -74,6 +79,7 @@ const PROVIDERS = [
   MessageEventService,
   MessageLogService,
   AnalyticsService,
+  SettingsService,
 ];
 
 @Module({
@@ -92,9 +98,34 @@ const PROVIDERS = [
     AutoReplyController,
     MessageLogController,
     AnalyticsController,
+    SettingsController,
     WahaMcpController,
     EngineSwitchController,
   ],
   providers: PROVIDERS,
 })
-export class AppModulePlus extends AppModuleCore {}
+export class AppModulePlus extends AppModuleCore {
+  constructor(
+    config: WhatsappConfigService,
+    dashboardConfig: DashboardConfigServiceCore,
+    @Optional() private settingsService?: SettingsService,
+  ) {
+    super(config, dashboardConfig);
+  }
+
+  protected override getCredentialResolver(): CredentialResolver {
+    const envCreds = this.dashboardConfig.credentials;
+    const settings = this.settingsService;
+    return async () => {
+      if (settings) {
+        try {
+          const token = await settings.getStoredAuthToken();
+          if (token) return { authToken: token };
+        } catch {
+          // DB not ready yet (manager not wired) — fall through to env
+        }
+      }
+      return envCreds;
+    };
+  }
+}
