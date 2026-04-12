@@ -33,7 +33,6 @@ import {
 import { DefaultMap } from '@waha/utils/DefaultMap';
 import { waitUntil } from '@waha/utils/promiseTimeout';
 import * as lodash from 'lodash';
-import { toNumber } from 'lodash';
 import { Logger } from 'pino';
 
 import { IChatRepository } from './IChatRepository';
@@ -345,7 +344,8 @@ export class NowebPersistentStore implements INowebStore {
   private async onChatUpsert(chats: Chat[]) {
     for (const chat of chats) {
       delete chat['messages'];
-      chat.conversationTimestamp = toNumber(chat.conversationTimestamp) || null;
+      chat.conversationTimestamp =
+        lodash.toNumber(chat.conversationTimestamp) || null;
     }
     chats = chats.filter((chat) => this.jids.include(chat.id));
     await this.chatRepo.upsertMany(chats);
@@ -448,7 +448,8 @@ export class NowebPersistentStore implements INowebStore {
       }
       const chat = (await this.chatRepo.getById(update.id)) || ({} as Chat);
       Object.assign(chat, update);
-      chat.conversationTimestamp = toNumber(chat.conversationTimestamp) || null;
+      chat.conversationTimestamp =
+        lodash.toNumber(chat.conversationTimestamp) || null;
       delete chat['messages'];
       await this.chatRepo.save(chat);
     }

@@ -18,7 +18,7 @@ import {
 import { Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 
-import { WAHASessionAPI } from '../../../app_sdk/waha/WAHASelf';
+import { WAHASessionAPI } from '@waha/apps/app_sdk/waha/WAHASelf';
 import {
   MessageEdited,
   MessageToChatWootConverter,

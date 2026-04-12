@@ -1,6 +1,6 @@
 import { LocalStore } from '@waha/core/storage/LocalStore';
 
-import { DataStore } from '../../../abc/DataStore';
+import { DataStore } from '@waha/core/abc/DataStore';
 import { INowebStorage } from './INowebStorage';
 import { Sqlite3Storage } from './sqlite3/Sqlite3Storage';
 

@@ -15,7 +15,6 @@ import {
   IsUrl,
   ValidateNested,
 } from 'class-validator';
-import { each } from 'lodash';
 
 export enum RetryPolicy {
   LINEAR = 'linear',

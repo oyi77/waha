@@ -1,4 +1,4 @@
-import { isPlainObject } from 'lodash';
+import * as lodash from 'lodash';
 import type { Logger as PinoLogger } from 'pino';
 
 type WinstonLogLevel =
@@ -29,7 +29,7 @@ export class PinoWinstonAdapter {
     message?: unknown,
     meta?: unknown,
   ) {
-    if (isPlainObject(levelOrEntry)) {
+    if (lodash.isPlainObject(levelOrEntry)) {
       const {
         level,
         message: entryMessage,
@@ -116,7 +116,7 @@ export class PinoWinstonAdapter {
   }
 
   private normalizeMeta(meta: unknown): Record<string, unknown> {
-    if (isPlainObject(meta)) {
+    if (lodash.isPlainObject(meta)) {
       return { ...(meta as Record<string, unknown>) };
     }
     if (meta instanceof Error) {

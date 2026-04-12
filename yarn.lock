@@ -11251,12 +11251,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^1.19.1":
-  version: 1.19.1
-  resolution: "prettier@npm:1.19.1"
+"prettier@npm:^3.5.3":
+  version: 3.8.2
+  resolution: "prettier@npm:3.8.2"
   bin:
-    prettier: ./bin-prettier.js
-  checksum: 10/21d245fe788d1123fd7df63a3759f7807d8c0bb7aaa2f4f02cc055998c3e1f92d7c614b6e2749a936c527cdbbb0f3c869bd9723eb32c5232b0fab9fac04b455d
+    prettier: bin/prettier.cjs
+  checksum: 10/fd784175bc600c07eb2c44d7ec4ee7133f95f26492adad61b6a15c06f438b858181faf096ab74163d7f49500ad80cff4479c6abb084e161a2e85a9df5974ecd1
   languageName: node
   linkType: hard
 
@@ -13814,7 +13814,7 @@ __metadata:
     pg: "npm:^8.13.1"
     pino-http: "npm:^10.2.0"
     pino-pretty: "npm:^11.2.1"
-    prettier: "npm:^1.19.1"
+    prettier: "npm:^3.5.3"
     pretty-bytes: "npm:5.6.0"
     promise-retry: "npm:^2.0.1"
     protoc-gen-ts: "npm:^0.8.7"

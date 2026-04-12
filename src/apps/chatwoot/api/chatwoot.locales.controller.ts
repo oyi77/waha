@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { sortBy } from 'lodash';
+import * as lodash from 'lodash';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { i18n } from '@waha/apps/chatwoot/i18n';
 
@@ -20,7 +20,7 @@ export class ChatwootLocalesController {
   getLanguages(): LanguageResponse[] {
     const locales = i18n.available();
     const priority = ['en-US', 'pt-BR', 'es-ES'];
-    return sortBy(locales, [
+    return lodash.sortBy(locales, [
       (x) => {
         const idx = priority.indexOf(x.locale);
         return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;

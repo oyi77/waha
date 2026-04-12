@@ -9,7 +9,7 @@ import { RMutexService } from '@waha/modules/rmutex/rmutex.service';
 import { Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 
-import { WAHASessionAPI } from '../../../app_sdk/waha/WAHASelf';
+import { WAHASessionAPI } from '@waha/apps/app_sdk/waha/WAHASelf';
 import { TKey } from '@waha/apps/chatwoot/i18n/templates';
 
 @Processor(QueueName.INBOX_MESSAGE_UPDATED, { concurrency: JOB_CONCURRENCY })
