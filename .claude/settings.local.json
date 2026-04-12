@@ -7,7 +7,17 @@
       "Bash(npm show:*)",
       "Bash(python3:*)",
       "Bash(yarn test:unit:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
+      "mcp__plugin_oh-my-claudecode_t__state_list_active",
+      "mcp__plugin_oh-my-claudecode_t__state_read",
+      "mcp__plugin_oh-my-claudecode_t__state_write",
+      "WebFetch(domain:waha.devlike.pro)",
+      "mcp__web-reader__webReader"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "code-review-graph"
+  ],
+  "enableAllProjectMcpServers": true
 }

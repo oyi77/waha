@@ -19,7 +19,11 @@ import { ContactsSessionController } from '@waha/api/contacts.session.controller
 import { ApiKeyStrategy } from '@waha/core/auth/apiKey.strategy';
 import { IApiKeyAuth } from '@waha/core/auth/auth';
 import { ApiKeyAuthMiddleware } from '@waha/core/auth/api-key-auth.middleware';
-import { DashboardCookieAuthFunction } from '@waha/core/auth/dashboardCookieAuth';
+import {
+  CredentialResolver,
+  DashboardCookieAuthFunction,
+} from '@waha/core/auth/dashboardCookieAuth';
+import { DashboardLoginController } from '@waha/core/auth/DashboardLoginController';
 import { WebSocketAuth } from '@waha/core/auth/WebSocketAuth';
 import { GowsEngineConfigService } from '@waha/core/config/GowsEngineConfigService';
 import { WPPEngineConfigService } from '@waha/core/config/WPPEngineConfigService';
@@ -211,7 +215,7 @@ const PROVIDERS = [
 
 @Module({
   imports: IMPORTS,
-  controllers: CONTROLLERS,
+  controllers: [...CONTROLLERS, DashboardLoginController],
   providers: PROVIDERS,
 })
 export class AppModuleCore {
@@ -219,7 +223,7 @@ export class AppModuleCore {
 
   constructor(
     protected config: WhatsappConfigService,
-    private dashboardConfig: DashboardConfigServiceCore,
+    protected dashboardConfig: DashboardConfigServiceCore,
   ) {
     this.startTimestamp = Date.now();
   }
@@ -243,6 +247,12 @@ export class AppModuleCore {
     httpsExpress.watchCertChanges(httpd);
   }
 
+  protected getCredentialResolver(): CredentialResolver {
+    const creds = this.dashboardConfig.credentials;
+    if (!creds) return () => null;
+    return () => creds;
+  }
+
   configure(consumer: MiddlewareConsumer) {
     // Because we use ServeStaticModule, we need to inject a middleware
     // ServeStaticModule does not support @UseGuards
@@ -255,17 +265,15 @@ export class AppModuleCore {
         '/api/dashboard/login',
         '/api/dashboard/logout',
         '/api/dashboard/config',
+        '/api/dashboard/settings',
+        '/api/dashboard/settings/(.*)',
       )
       .forRoutes('api', 'health');
 
     // Dashboard — cookie-based auth (custom login page, no browser dialog)
-    const dashboardCredentials = this.dashboardConfig.credentials;
-    if (dashboardCredentials) {
-      const username = dashboardCredentials[0];
-      const password = dashboardCredentials[1];
-      consumer
-        .apply(DashboardCookieAuthFunction(username, password))
-        .forRoutes('dashboard');
-    }
+    const resolver = this.getCredentialResolver();
+    consumer
+      .apply(DashboardCookieAuthFunction(resolver))
+      .forRoutes('dashboard');
   }
 }
