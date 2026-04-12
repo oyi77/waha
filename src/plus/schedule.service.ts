@@ -94,7 +94,10 @@ export class ScheduleService implements OnModuleDestroy {
   }
 
   private startRunner() {
-    this._timer = setInterval(() => this.runPending().catch((e) => this.logger.error(e)), 10_000);
+    this._timer = setInterval(
+      () => this.runPending().catch((e) => this.logger.error(e)),
+      10_000,
+    );
   }
 
   private async runPending() {
@@ -120,7 +123,11 @@ export class ScheduleService implements OnModuleDestroy {
 
         try {
           const whatsapp = await this.manager.getWorkingSession(msg.session);
-          const req: any = { chatId: msg.chatId, session: msg.session, ...msg.payload };
+          const req: any = {
+            chatId: msg.chatId,
+            session: msg.session,
+            ...msg.payload,
+          };
 
           switch (msg.type) {
             case 'text':
@@ -148,11 +155,15 @@ export class ScheduleService implements OnModuleDestroy {
           });
           this.logger.log(`Scheduled message ${msg.id} sent`);
         } catch (err: any) {
-          await knex(TABLE).where({ id: msg.id }).update({
-            status: 'failed',
-            error: err?.message ?? String(err),
-          });
-          this.logger.error(`Scheduled message ${msg.id} failed: ${err?.message}`);
+          await knex(TABLE)
+            .where({ id: msg.id })
+            .update({
+              status: 'failed',
+              error: err?.message ?? String(err),
+            });
+          this.logger.error(
+            `Scheduled message ${msg.id} failed: ${err?.message}`,
+          );
         }
       }
     } finally {
@@ -205,7 +216,9 @@ export class ScheduleService implements OnModuleDestroy {
 
   async get(id: string): Promise<ScheduledMessage | null> {
     const knex = await this.db();
-    const row: ScheduledRow | undefined = await knex(TABLE).where({ id }).first();
+    const row: ScheduledRow | undefined = await knex(TABLE)
+      .where({ id })
+      .first();
     return row ? rowToMessage(row) : null;
   }
 

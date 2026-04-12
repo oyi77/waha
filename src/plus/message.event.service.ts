@@ -15,6 +15,8 @@ export class MessageEventService {
   private readonly logger = new Logger(MessageEventService.name);
   private handlers: MessageHandler[] = [];
 
+  constructor() {}
+
   register(handler: MessageHandler) {
     this.handlers.push(handler);
   }
@@ -32,7 +34,9 @@ export class MessageEventService {
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       if (r.status === 'rejected') {
-        this.logger.error(`MessageEventService handler[${i}] error: ${r.reason?.message ?? r.reason}`);
+        this.logger.error(
+          `MessageEventService handler[${i}] error: ${r.reason?.message ?? r.reason}`,
+        );
       }
     }
   }
