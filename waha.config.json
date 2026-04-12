@@ -5,8 +5,8 @@
       "ref": "v1.0.36"
     },
     "dashboard": {
-      "repo": "devlikeapro/dashboard",
-      "ref": "24d3aca7113688eb2abaad9ff3716cdff540ae59"
+      "repo": "oyi77/dashboard",
+      "ref": "23892eca565b33f0a1bd186fc460c4aece0a4b12"
     }
   }
 }
