@@ -41,6 +41,7 @@ import { AnalyticsService } from './analytics.service';
 import { AnalyticsController } from './analytics.controller';
 import { SettingsService } from './settings.service';
 import { SettingsController } from './settings.controller';
+import { SessionLifecycleController } from './session_lifecycle.controller';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -99,6 +100,7 @@ const PROVIDERS = [
     MessageLogController,
     AnalyticsController,
     SettingsController,
+    SessionLifecycleController,
     WahaMcpController,
     EngineSwitchController,
   ],

@@ -180,10 +180,64 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     this.apiKeyRepository = new Sqlite3ApiKeyRepository(this.store);
     await this.apiKeyRepository.init();
     await this.engineBootstrap.bootstrap();
+
+    // Load session lifecycle settings from DB (merge with env var defaults)
+    const lcSettings = await this.loadSessionLifecycleSettings();
+
+    // Apply auto-start delay if configured
+    if (lcSettings.autoStartDelay > 0) {
+      this.log.info(
+        `Delaying session start by ${lcSettings.autoStartDelay}s (autoStartDelay)`,
+      );
+      await sleep(lcSettings.autoStartDelay * 1000);
+    }
+
     // Restart sessions that were running on this worker
-    await this.restartWorkerSessions();
+    const restartAll = lcSettings.restartAllSessions;
+    if (restartAll) {
+      await this.restartAllSessions(lcSettings);
+    } else {
+      await this.restartWorkerSessions(lcSettings);
+    }
+
     // Also start predefined sessions from env var
     this.startPredefinedSessions();
+  }
+
+  private async loadSessionLifecycleSettings(): Promise<{
+    autoRestartOnBoot: boolean;
+    autoRestartFailed: boolean;
+    restartAllSessions: boolean;
+    autoStartDelay: number;
+  }> {
+    // Start with env var defaults
+    const defaults = {
+      autoRestartOnBoot: this.config.shouldRestartWorkerSessions,
+      autoRestartFailed: false,
+      restartAllSessions: this.config.shouldRestartAllSessions,
+      autoStartDelay: this.config.autoStartDelaySeconds,
+    };
+
+    // Override with DB settings if available
+    if (this.settingsService) {
+      try {
+        const dbSettings =
+          await this.settingsService.getSessionLifecycleSettings();
+        return {
+          autoRestartOnBoot: dbSettings.autoRestartOnBoot,
+          autoRestartFailed: dbSettings.autoRestartFailed,
+          restartAllSessions: dbSettings.restartAllSessions,
+          autoStartDelay: dbSettings.autoStartDelay,
+        };
+      } catch (error) {
+        this.log.warn(
+          { error },
+          'Failed to load session lifecycle settings from DB, using env defaults',
+        );
+      }
+    }
+
+    return defaults;
   }
 
   // ─── Core API ─────────────────────────────────────────────────────────────────
@@ -591,10 +645,13 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     }
   }
 
-  private async restartWorkerSessions() {
-    if (!this.config.shouldRestartWorkerSessions) {
+  private async restartWorkerSessions(lcSettings: {
+    autoRestartOnBoot: boolean;
+    autoRestartFailed: boolean;
+  }) {
+    if (!lcSettings.autoRestartOnBoot) {
       this.log.info(
-        'Worker session auto-restart is disabled (WAHA_WORKER_RESTART_SESSIONS=false)',
+        'Worker session auto-restart is disabled (autoRestartOnBoot=false)',
       );
       return;
     }
@@ -619,6 +676,39 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
       }
     } catch (error) {
       this.log.error({ error }, 'Failed to restart worker sessions');
+    }
+  }
+
+  private async restartAllSessions(lcSettings: {
+    autoRestartOnBoot: boolean;
+    autoRestartFailed: boolean;
+  }) {
+    if (!lcSettings.autoRestartOnBoot) {
+      this.log.info(
+        'Session auto-restart is disabled (autoRestartOnBoot=false)',
+      );
+      return;
+    }
+    if (!this.sessionWorkerRepository) return;
+
+    try {
+      const allWorkers = await this.sessionWorkerRepository.getAll();
+      const allSessions = allWorkers.map((w) => w.id);
+      if (!allSessions.length) return;
+      this.log.info(
+        `Auto-restarting ${allSessions.length} session(s) across all workers (restartAllSessions=true)...`,
+      );
+      for (const name of allSessions) {
+        this.withLock(name, async () => {
+          const log = this.log.logger.child({ session: name });
+          log.info('Restarting session...');
+          await this.start(name).catch((err) => {
+            log.error(`Failed to restart session: ${err}`);
+          });
+        });
+      }
+    } catch (error) {
+      this.log.error({ error }, 'Failed to restart all sessions');
     }
   }
 }
