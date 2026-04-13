@@ -110,6 +110,14 @@ async function bootstrap() {
   app.use(urlencoded({ limit: '50mb', extended: false }));
   app.useWebSocketAdapter(new WsAdapter(app));
 
+  app.use((req: any, res: any, next: () => void) => {
+    if (req.path === '/favicon.ico') {
+      res.redirect('/dashboard/favicon.svg');
+    } else {
+      next();
+    }
+  });
+
   // Configure swagger
   const swaggerConfigurator = new SwaggerConfiguratorCore(app);
   swaggerConfigurator.configure(WAHA_WEBHOOKS);
