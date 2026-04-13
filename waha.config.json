@@ -5,7 +5,7 @@
       "ref": "v1.0.36"
     },
     "dashboard": {
-      "repo": "oyi77/dashboard",
+      "repo": "oyi77/waha-dashboard",
       "ref": "b7abfd4e77caaa5275de19511296ac80066a19b9"
     }
   }
