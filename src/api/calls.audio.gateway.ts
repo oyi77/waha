@@ -9,6 +9,7 @@ import { SessionManager } from '@waha/core/abc/manager.abc';
 import { WAHAEngine, WAHASessionStatus } from '@waha/structures/enums.dto';
 import { WhatsappSessionWPPCore } from '@waha/core/engines/wpp/session.wpp.core';
 import { CallAudioBridge } from '@waha/core/engines/wpp/call-audio/CallAudioBridge';
+import { WebSocketAuth } from '@waha/core/auth/WebSocketAuth';
 import { WebSocket } from '@waha/nestjs/ws/ws';
 import { IncomingMessage } from 'http';
 import { URL } from 'url';
@@ -17,7 +18,7 @@ import { WebSocketServer } from 'ws';
 //
 // WebSocket audio streaming gateway for voice calls.
 //
-// WS path: /ws/calls/audio?session=<name>&callId=<id>
+// WS path: /ws/calls/audio?session=<name>&callId=<id>&x-api-key=<key>
 // Protocol: base64 text frames
 //   Client → Server: outgoing audio (PCM signed 16-bit LE 16kHz mono, base64)
 //   Server → Client: incoming audio (webm/opus chunks, base64)
@@ -31,7 +32,10 @@ export class CallAudioGateway
   private readonly logger: LoggerService;
   private wss: WebSocketServer | null = null;
 
-  constructor(private readonly manager: SessionManager) {
+  constructor(
+    private readonly manager: SessionManager,
+    private readonly auth: WebSocketAuth,
+  ) {
     this.logger = new Logger('CallAudioGateway');
   }
 
@@ -55,10 +59,17 @@ export class CallAudioGateway
     return true;
   }
 
-  private handleConnection(ws: WebSocket, request: IncomingMessage) {
+  private async handleConnection(ws: WebSocket, request: IncomingMessage) {
     const url = new URL(request.url || '/', 'http://localhost');
     const sessionName = url.searchParams.get('session');
     const callId = url.searchParams.get('callId');
+
+    const user = await this.auth.validateRequest(request);
+    if (!user) {
+      ws.close(4003, 'Unauthorized');
+      this.logger.warn('Unauthorized audio WS connection attempt');
+      return;
+    }
 
     if (!sessionName || !callId) {
       ws.close(4001, 'Missing session or callId query parameter');

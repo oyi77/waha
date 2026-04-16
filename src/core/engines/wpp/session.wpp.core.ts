@@ -532,6 +532,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
       throw new Error('WPP client is not ready');
     }
     await this.wpp.rejectCall(id);
+    this.activeCalls.delete(id);
   }
 
   @Activity()
