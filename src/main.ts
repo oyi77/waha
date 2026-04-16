@@ -129,9 +129,19 @@ async function bootstrap() {
   await app.listen(config.port);
   const audioGateway = app.get(CallAudioGateway);
   const httpServer = app.getHttpServer();
+
+  // NestJS's WsAdapter registers an 'upgrade' handler that destroys sockets
+  // for paths it doesn't recognize. We must intercept BEFORE it runs.
+  // Strategy: capture NestJS's upgrade listeners, remove them, then add our own
+  // combined handler that checks audio path first, then delegates to NestJS.
+  const upgradeListeners = httpServer.listeners('upgrade').slice();
+  httpServer.removeAllListeners('upgrade');
   httpServer.on('upgrade', (request, socket, head) => {
     if (audioGateway.handleUpgrade(request, socket, head)) {
       return;
+    }
+    for (const listener of upgradeListeners) {
+      (listener as any).call(httpServer, request, socket, head);
     }
   });
   logger.info(`WhatsApp HTTP API is running on: ${await app.getUrl()}`);
