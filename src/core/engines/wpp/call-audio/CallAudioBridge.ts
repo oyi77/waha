@@ -53,6 +53,9 @@ export class CallAudioBridge extends EventEmitter {
     if (!this.injected) {
       await this.inject();
     }
+    if (this.activeCallId) {
+      await this.stop();
+    }
     await this.page.evaluate(
       (id: string) => (window as any).__wahaAudioBridgeStart(id),
       callId,
@@ -205,6 +208,8 @@ Object.assign(window.RTCPeerConnection, OriginalRTCPeerConnection);
 window.RTCPeerConnection.prototype = OriginalRTCPeerConnection.prototype;
 
 window.__wahaAudioBridgeStart = function (callId) {
+  if (__wahaState.activeCallId) __wahaStopRecording();
+  if (__wahaState.audioContext) { __wahaState.audioContext.close(); __wahaState.audioContext = null; }
   __wahaState.activeCallId = callId;
   __wahaCreateInputStream();
 };
