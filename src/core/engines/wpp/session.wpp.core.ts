@@ -315,6 +315,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
           'Failed to stop audio bridge on session stop',
         );
       });
+      this.audioBridge.removeAllListeners();
       this.audioBridge = null;
     }
     this.mediaManager.close();
@@ -550,7 +551,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
     );
     const callData: CallData = {
       id: callModel?.id || null,
-      from: null,
+      from: this.getSessionMeInfo()?.id || null,
       to: normalizedChatId,
       timestamp: Math.floor(Date.now() / 1000),
       isVideo: isVideo,
