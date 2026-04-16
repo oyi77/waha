@@ -2335,6 +2335,7 @@ export class WhatsappSessionGoWSCore extends WhatsappSession {
     return {
       id: this.getCallId(call),
       from: from ? toCusFormat(from) : undefined,
+      to: call?.To ? toCusFormat(call.To) : undefined,
       timestamp: timestamp,
       isVideo: Boolean(isVideo),
       isGroup: isGroup,

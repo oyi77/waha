@@ -38,6 +38,7 @@ import { LidToPhoneNumber } from '@waha/structures/lids.dto';
 import { PaginationParams } from '@waha/structures/pagination.dto';
 import { MessageSource, WAMessage } from '@waha/structures/responses.dto';
 import { BrowserTraceQuery } from '@waha/structures/server.debug.dto';
+import { CallData } from '@waha/structures/calls.dto';
 import { DefaultMap } from '@waha/utils/DefaultMap';
 import { generatePrefixedId } from '@waha/utils/ids';
 import { LoggerBuilder } from '@waha/utils/logging';
@@ -666,6 +667,26 @@ export abstract class WhatsappSession {
   }
 
   public rejectCall(from: string, id: string): Promise<void> {
+    throw new NotImplementedByEngineError();
+  }
+
+  public offerCall(chatId: string, isVideo: boolean): Promise<CallData> {
+    throw new NotImplementedByEngineError();
+  }
+
+  public acceptCall(callId: string): Promise<void> {
+    throw new NotImplementedByEngineError();
+  }
+
+  public terminateCall(callId?: string): Promise<void> {
+    throw new NotImplementedByEngineError();
+  }
+
+  public getActiveCalls(): CallData[] {
+    throw new NotImplementedByEngineError();
+  }
+
+  public getCall(callId: string): CallData {
     throw new NotImplementedByEngineError();
   }
 

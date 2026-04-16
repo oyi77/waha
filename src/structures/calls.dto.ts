@@ -3,7 +3,7 @@
  */
 import { ApiProperty } from '@nestjs/swagger';
 import { ChatIdProperty } from '@waha/structures/properties.dto';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 function CallIdProperty() {
   return ApiProperty({
@@ -26,10 +26,15 @@ export class RejectCallRequest {
 
 export class CallData {
   @CallIdProperty()
-  id: string;
+  id: string | null;
 
   @ChatIdProperty()
   from?: string;
+
+  @ApiProperty({
+    description: 'The chat ID the call is directed to',
+  })
+  to?: string;
 
   timestamp: number;
 
@@ -38,4 +43,34 @@ export class CallData {
   isGroup: boolean;
 
   _data: any;
+}
+
+export class OfferCallRequest {
+  @ChatIdProperty()
+  @IsString()
+  @IsNotEmpty()
+  chatId: string;
+
+  @ApiProperty({
+    description: 'Whether this is a video call',
+    default: false,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isVideo?: boolean;
+}
+
+export class AcceptCallRequest {
+  @CallIdProperty()
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+}
+
+export class TerminateCallRequest {
+  @CallIdProperty()
+  @IsString()
+  @IsOptional()
+  id?: string;
 }

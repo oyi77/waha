@@ -47,6 +47,7 @@ import { Logger } from 'pino';
 
 import { AuthController } from '../api/auth.controller';
 import { CallsController } from '../api/calls.controller';
+import { CallAudioGateway } from '../api/calls.audio.gateway';
 import { ChatsController } from '../api/chats.controller';
 import { ChattingController } from '../api/chatting.controller';
 import { ContactsController } from '../api/contacts.controller';
@@ -192,6 +193,7 @@ export const PROVIDERS_BASE: Provider[] = [
   ApiKeyService,
   CaslAbilityFactory,
   PoliciesGuard,
+  CallAudioGateway,
   {
     provide: IApiKeyAuth,
     useFactory: ApiKeyAuthFactory,

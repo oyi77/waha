@@ -121,6 +121,7 @@ import {
   WppSendTextOptions,
   WppSendTextStatusOptions,
 } from '@waha/core/engines/wpp/WppTypes';
+import { CallAudioBridge } from '@waha/core/engines/wpp/call-audio/CallAudioBridge';
 import { NotImplementedByEngineError } from '@waha/core/exceptions';
 import { IMediaEngineProcessor } from '@waha/core/media/IMediaEngineProcessor';
 import { IWPPAuthManager } from '@waha/core/engines/wpp/IWPPAuthManager';
@@ -193,6 +194,8 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   private meInfo: MeInfo | null = null;
   private pairingCode?: string;
   private presencesByChatId = new Map<string, WAHAChatPresences>();
+  protected activeCalls = new Map<string, CallData>();
+  public audioBridge: CallAudioBridge | null = null;
   private startAttemptId = 0;
   private shouldRestart: boolean;
   private startDelayedJob: SingleDelayedJobRunner;
@@ -304,6 +307,16 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
     this.startDelayedJob.cancel();
     this.status = WAHASessionStatus.STOPPED;
     this.stopEvents();
+    this.activeCalls.clear();
+    if (this.audioBridge) {
+      await this.audioBridge.stop().catch((error) => {
+        this.logger.debug(
+          { error: error },
+          'Failed to stop audio bridge on session stop',
+        );
+      });
+      this.audioBridge = null;
+    }
     this.mediaManager.close();
     await this.authManager?.stop();
     await this.end();
@@ -398,6 +411,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
     // Keep the shared field assigned for inherited API methods.
     this.whatsapp = this.wpp as any;
     this.subscribeEngineEvents2();
+    this.initAudioBridge(wpp.page);
     if (this.isDebugEnabled()) {
       this.listenEngineEventsInDebugMode();
     }
@@ -514,7 +528,116 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   @Activity()
   public async rejectCall(from: string, id: string): Promise<void> {
     void from;
-    await this.wpp!.rejectCall(id);
+    if (!this.wpp) {
+      throw new Error('WPP client is not ready');
+    }
+    await this.wpp.rejectCall(id);
+  }
+
+  @Activity()
+  public async offerCall(chatId: string, isVideo: boolean): Promise<CallData> {
+    if (!this.wpp?.page) {
+      throw new Error('WPP page is not ready');
+    }
+    const normalizedChatId = this.ensureSuffix(chatId);
+    const callModel = await this.wpp.page.evaluate(
+      async (to: string, video: boolean) => {
+        return await WPP.call.offer(to, { isVideo: video });
+      },
+      normalizedChatId,
+      isVideo,
+    );
+    const callData: CallData = {
+      id: callModel?.id || null,
+      from: null,
+      to: normalizedChatId,
+      timestamp: Math.floor(Date.now() / 1000),
+      isVideo: isVideo,
+      isGroup: false,
+      _data: callModel,
+    };
+    if (callData.id) {
+      this.activeCalls.set(callData.id, callData);
+      if (this.audioBridge) {
+        this.audioBridge.start(callData.id).catch((error) => {
+          this.logger.warn(
+            { error: error, callId: callData.id },
+            'Failed to start audio bridge',
+          );
+        });
+      }
+    }
+    return callData;
+  }
+
+  @Activity()
+  public async acceptCall(callId: string): Promise<void> {
+    if (!this.wpp?.page) {
+      throw new Error('WPP page is not ready');
+    }
+    await this.wpp.page.evaluate(async (id: string) => {
+      return await WPP.call.accept(id);
+    }, callId);
+    const call = this.activeCalls.get(callId);
+    if (call) {
+      this.activeCalls.set(callId, {
+        ...call,
+        _data: { ...call._data, state: 'accepted' },
+      });
+    }
+    if (this.audioBridge) {
+      this.audioBridge.start(callId).catch((error) => {
+        this.logger.warn(
+          { error: error, callId: callId },
+          'Failed to start audio bridge on accept',
+        );
+      });
+    }
+  }
+
+  @Activity()
+  public async terminateCall(callId?: string): Promise<void> {
+    if (!this.wpp?.page) {
+      throw new Error('WPP page is not ready');
+    }
+    await this.wpp.page.evaluate(async (id: string | undefined) => {
+      return await WPP.call.end(id || undefined);
+    }, callId || undefined);
+    if (callId) {
+      this.activeCalls.delete(callId);
+    } else {
+      this.activeCalls.clear();
+    }
+    if (this.audioBridge) {
+      this.audioBridge.stop().catch((error) => {
+        this.logger.debug(
+          { error: error },
+          'Failed to stop audio bridge on terminate',
+        );
+      });
+    }
+  }
+
+  public getActiveCalls(): CallData[] {
+    return Array.from(this.activeCalls.values());
+  }
+
+  public getCall(callId: string): CallData {
+    const call = this.activeCalls.get(callId);
+    if (!call) {
+      throw new NotFoundException(`Call ${callId} not found`);
+    }
+    return call;
+  }
+
+  private initAudioBridge(page: any): void {
+    this.audioBridge = new CallAudioBridge(page, this.logger);
+    this.audioBridge.on('chunk', (callId: string, base64Chunk: string) => {
+      this.logger.debug(
+        { callId: callId, size: base64Chunk.length },
+        'Audio chunk received from browser',
+      );
+    });
   }
 
   @Activity()
@@ -624,9 +747,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   public async sendImage(request: MessageImageRequest) {
     const chatId = this.ensureSuffix(request.chatId);
     const content = await this.fileToBuffer(request.file);
-    const mimetype = MimetypeForDataUrl(
-      request.file?.mimetype || 'image/jpeg',
-    );
+    const mimetype = MimetypeForDataUrl(request.file?.mimetype || 'image/jpeg');
     const base64 = content.toString('base64');
     const media = `data:${mimetype};base64,${base64}`;
     const quotedMessageId = this.getReplyToMessageId(request as any);
@@ -1539,7 +1660,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
         const ack: number =
           typeof ackLevel === 'number'
             ? ackLevel
-            : model.ack ?? WAMessageAck.PENDING;
+            : (model.ack ?? WAMessageAck.PENDING);
         return {
           id: msgId,
           from: from,
@@ -1722,6 +1843,11 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
     const calls$ = streams.onIncomingCall.pipe(
       map((p) => this.normalizeWppIncomingCallData(p.data)),
       filter(Boolean),
+      tap((call) => {
+        if (call.id) {
+          this.activeCalls.set(call.id, call);
+        }
+      }),
     );
     this.events2.get(WAHAEvents.CALL_RECEIVED).switch(calls$);
 
@@ -2100,10 +2226,13 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
         : Number(timestampRaw) || Math.floor(Date.now() / 1000);
     const isVideo = Boolean(call.isVideo);
     const isGroup = Boolean(call.isGroup);
+    const toRaw = Deserialized(call.to) || call.to || null;
+    const to = toRaw ? toCusFormat(toRaw) : null;
 
     return {
       id: id,
       from: from,
+      to: to,
       timestamp: timestamp,
       isVideo: isVideo,
       isGroup: isGroup,

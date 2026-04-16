@@ -30,6 +30,7 @@ import pino from 'pino';
 
 import { WhatsappConfigService } from './config.service';
 import { AppModuleCore } from './core/app.module.core';
+import { CallAudioGateway } from './api/calls.audio.gateway';
 import { SwaggerConfiguratorCore } from './core/SwaggerConfiguratorCore';
 import { AllExceptionsFilter } from './nestjs/AllExceptionsFilter';
 import { getWAHAVersion, VERSION, WAHAVersion } from './version';
@@ -126,6 +127,13 @@ async function bootstrap() {
   app.enableShutdownHooks();
   const config = app.get(WhatsappConfigService);
   await app.listen(config.port);
+  const audioGateway = app.get(CallAudioGateway);
+  const httpServer = app.getHttpServer();
+  httpServer.on('upgrade', (request, socket, head) => {
+    if (audioGateway.handleUpgrade(request, socket, head)) {
+      return;
+    }
+  });
   logger.info(`WhatsApp HTTP API is running on: ${await app.getUrl()}`);
   logger.info(VERSION, 'Environment');
 }
