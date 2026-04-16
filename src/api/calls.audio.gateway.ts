@@ -129,6 +129,10 @@ export class CallAudioGateway
     audioBridge.on('chunk', onChunk);
 
     ws.on('message', (data: Buffer) => {
+      if (!audioBridge.getActiveCallId()) {
+        ws.close(1001, 'Call ended');
+        return;
+      }
       const base64Data = data.toString('utf-8');
       audioBridge.feedAudio(base64Data).catch((error) => {
         this.logger.warn(

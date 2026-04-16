@@ -36,12 +36,28 @@ export class CallData {
   })
   to?: string;
 
+  @ApiProperty({
+    description: 'Unix timestamp for when the call was initiated',
+    example: 1666943582,
+  })
   timestamp: number;
 
+  @ApiProperty({
+    description: 'Whether this is a video call',
+    example: false,
+  })
   isVideo: boolean;
 
+  @ApiProperty({
+    description: 'Whether this is a group call',
+    example: false,
+  })
   isGroup: boolean;
 
+  @ApiProperty({
+    description:
+      'Raw call data from WhatsApp. May change anytime, use with caution!',
+  })
   _data: any;
 }
 
