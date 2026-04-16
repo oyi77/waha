@@ -89,21 +89,37 @@ export class AnalyticsService extends AbstractKnexService {
     if (session) query = query.where({ session });
     const rows: CounterRow[] = await query;
 
+    // Create a map with all dates in the range initialized to zero
     const map = new Map<string, DailyStat>();
-    for (const row of rows) {
-      const existing: DailyStat = map.get(row.date) ?? {
-        date: row.date,
+    const numDays = Math.max(1, days);
+    for (let i = 0; i < numDays; i++) {
+      const date = new Date(cutoff);
+      date.setDate(cutoff.getDate() + i);
+      const dateISO = (() => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      })();
+      map.set(dateISO, {
+        date: dateISO,
         messages_sent: 0,
         messages_received: 0,
         sessions_started: 0,
-      };
+      });
+    }
+
+    // Fill in actual data from database
+    for (const row of rows) {
+      const existing = map.get(row.date);
+      if (!existing) continue; // Skip dates outside our range
       if (row.metric === 'messages_sent') existing.messages_sent += row.value;
       else if (row.metric === 'messages_received')
         existing.messages_received += row.value;
       else if (row.metric === 'sessions_started')
         existing.sessions_started += row.value;
-      map.set(row.date, existing);
     }
+
     return Array.from(map.values()).sort((a, b) =>
       a.date.localeCompare(b.date),
     );
