@@ -28,6 +28,15 @@ function FromEnv(
     };
   }
 
+  // If env var is not set, use default
+  if (!value) {
+    return {
+      param: param,
+      value: adefault,
+      generated: false,
+    };
+  }
+
   return {
     param: param,
     value: value,
@@ -72,10 +81,11 @@ export class AuthConfig {
       keys,
     );
 
+    const keyplainDefault = this.key.value?.startsWith('sha512:') ? null : this.key.value;
     this.keyplain = FromEnv(
       'WAHA_API_KEY_PLAIN',
       false,
-      this.key.value?.startsWith('sha512:') ? null : this.key.value,
+      keyplainDefault,
       [],
     );
 
@@ -125,6 +135,12 @@ export class AuthConfig {
 export const Auth = new AuthConfig();
 
 export function ReportGeneratedValue() {
+  console.warn('');
+  console.warn('🔑 AUTH Configuration');
+  console.warn(`Auth.key.value = ${Auth.key.value}`);
+  console.warn(`Auth.keyplain.value = ${Auth.keyplain.value}`);
+  console.warn('');
+
   let values = [
     Auth.key,
     Auth.dashboard.username,

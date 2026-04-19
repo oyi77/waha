@@ -138,28 +138,35 @@ export class DashboardLoginController {
       'No API key required — excluded from API key auth.',
   })
   async getConfig(@Req() req: Request, @Res() res: Response) {
-    const cookies = parseCookies(req.headers.cookie || '');
-    const cookieToken = cookies[WAHA_AUTH_COOKIE] || '';
+    try {
+      const cookies = parseCookies(req.headers.cookie || '');
+      const cookieToken = cookies[WAHA_AUTH_COOKIE] || '';
 
-    // Resolve the valid token — prefer stored DB token, fall back to env.
-    let validToken: string | null = null;
-    if (this.settingsService) {
-      validToken = await this.settingsService
-        .getStoredAuthToken()
-        .catch(() => null);
-    }
-    if (!validToken) {
-      const envCreds = this.dashboardConfig.credentials;
-      if (envCreds) {
-        validToken = makeAuthToken(envCreds[0], envCreds[1]);
+      // Resolve the valid token — prefer stored DB token, fall back to env.
+      let validToken: string | null = null;
+      if (this.settingsService) {
+        validToken = await this.settingsService
+          .getStoredAuthToken()
+          .catch(() => null);
       }
-    }
+      if (!validToken) {
+        const envCreds = this.dashboardConfig.credentials;
+        if (envCreds) {
+          validToken = makeAuthToken(envCreds[0], envCreds[1]);
+        }
+      }
 
-    if (validToken && !safeEqual(cookieToken, validToken)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
+      if (validToken && !safeEqual(cookieToken, validToken)) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
 
-    const plainKey = Auth.keyplain?.value || '';
-    return res.json({ apiKey: plainKey });
+      const plainKey = Auth.keyplain?.value ?? '';
+      this.logger.log(`[getConfig] Auth.keyplain: ${JSON.stringify(Auth.keyplain)}`);
+      this.logger.log(`[getConfig] plainKey: "${plainKey}"`);
+      return res.json({ apiKey: plainKey });
+    } catch (error) {
+      this.logger.error('Error in getConfig: %O', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
   }
 }
