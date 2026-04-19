@@ -46,9 +46,9 @@ RUN \
     wget https://github.com/${WAHA_DASHBOARD_GITHUB_REPO}/archive/${WAHA_DASHBOARD_SHA}.zip \
     && unzip ${WAHA_DASHBOARD_SHA}.zip -d /tmp/dashboard \
     && mkdir -p /dashboard \
-    && mv /tmp/dashboard/dashboard-${WAHA_DASHBOARD_SHA}/* /dashboard/ \
+    && mv /tmp/dashboard/waha-dashboard-${WAHA_DASHBOARD_SHA}/* /dashboard/ \
     && rm -rf ${WAHA_DASHBOARD_SHA}.zip \
-    && rm -rf /tmp/dashboard/dashboard-${WAHA_DASHBOARD_SHA}
+    && rm -rf /tmp/dashboard/waha-dashboard-${WAHA_DASHBOARD_SHA}
 
 #
 # GOWS
@@ -214,7 +214,11 @@ COPY --from=build /git/node_modules ./node_modules
 COPY --from=build /git/dist ./dist
 COPY --from=dashboard /dashboard ./dist/dashboard
 # Apply our custom dashboard overrides on top of the upstream dashboard
-COPY src/dashboard/ ./dist/dashboard/
+COPY src/dashboard/login.html ./dist/dashboard/
+COPY src/dashboard/plus-nav.js ./dist/dashboard/
+COPY src/dashboard/ws-reconnect-fix.js ./dist/dashboard/
+# Copy the built dashboard output (not source)
+COPY src/dashboard/plus/.output/public/ ./dist/dashboard/
 COPY --from=gows /go/gows/bin/gows /app/gows
 COPY .env.example ./.env.example
 COPY scripts/init-waha.js ./scripts/init-waha.js

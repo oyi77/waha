@@ -16,5 +16,10 @@
     "incremental": true,
     "resolveJsonModule": true,
     "skipLibCheck": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/dashboard/plus"
+  ]
 }
