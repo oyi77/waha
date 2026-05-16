@@ -1,3 +1,5 @@
+<!-- Parent: ../AGENTS.md -->
+
 # WAHA Agent Playbook
 
 This guide summarizes how to explore, modify, and validate the WhatsApp HTTP API
