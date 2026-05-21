@@ -69,7 +69,11 @@
 
       <div>
         <div class="section-title">Rules ({{ rules.length }})</div>
-        <div v-if="rules.length === 0" class="empty-state">
+        <div v-if="loading" class="empty-state">
+          <div class="empty-state-icon">⟳</div>
+          <div class="empty-state-text">Loading rules…</div>
+        </div>
+        <div v-else-if="rules.length === 0" class="empty-state">
           <div class="empty-state-icon">↩</div>
           <div class="empty-state-text">No auto-reply rules</div>
         </div>
@@ -134,6 +138,7 @@ const { get, post, put, del } = useWahaApi();
 const { success, error } = useToast();
 
 const rules = ref<AutoReplyRule[]>([]);
+const loading = ref(true);
 const createForm = reactive({
   keyword: "",
   type: "text",
@@ -143,11 +148,14 @@ const testInput = ref("");
 const testResult = ref<unknown>(null);
 
 async function loadRules() {
+  loading.value = true;
   try {
     const data = await get<AutoReplyRule[]>("/api/autoreply");
     rules.value = data;
   } catch (e) {
-    error("Failed to load rules");
+    error("Failed to load rules: " + extractApiError(e));
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -173,8 +181,8 @@ async function createRule() {
     createForm.keyword = "";
     createForm.payload = '{"text": "Hello back!"}';
     await loadRules();
-  } catch {
-    error("Failed to create rule");
+  } catch (e) {
+    error("Failed to create rule: " + extractApiError(e));
   }
 }
 
@@ -183,8 +191,8 @@ async function deleteRule(id: string) {
     await del(`/api/autoreply/${id}`);
     success("Deleted");
     await loadRules();
-  } catch {
-    error("Failed to delete rule");
+  } catch (e) {
+    error("Failed to delete rule: " + extractApiError(e));
   }
 }
 
@@ -194,8 +202,8 @@ async function toggleRule(rule: AutoReplyRule) {
       enabled: !(rule.enabled !== false),
     });
     await loadRules();
-  } catch {
-    error("Failed to update rule");
+  } catch (e) {
+    error("Failed to update rule: " + extractApiError(e));
   }
 }
 

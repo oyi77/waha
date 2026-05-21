@@ -70,7 +70,11 @@
         <div class="section-title">
           Scheduled Messages ({{ scheduled.length }})
         </div>
-        <div v-if="scheduled.length === 0" class="empty-state">
+        <div v-if="loading" class="empty-state">
+          <div class="empty-state-icon">⟳</div>
+          <div class="empty-state-text">Loading scheduled messages…</div>
+        </div>
+        <div v-else-if="scheduled.length === 0" class="empty-state">
           <div class="empty-state-icon">◷</div>
           <div class="empty-state-text">No scheduled messages</div>
         </div>
@@ -133,6 +137,7 @@ const { success, error } = useToast();
 
 const sessions = ref<string[]>([]);
 const scheduled = ref<Scheduled[]>([]);
+const loading = ref(true);
 
 const form = reactive({
   session: "",
@@ -157,17 +162,20 @@ async function loadSessions() {
     if (sessions.value.length > 0 && !form.session) {
       form.session = sessions.value[0];
     }
-  } catch {
-    error("Failed to load sessions");
+  } catch (e) {
+    error("Failed to load sessions: " + extractApiError(e));
   }
 }
 
 async function loadScheduled() {
+  loading.value = true;
   try {
     const data = await get<Scheduled[]>("/api/schedule");
     scheduled.value = data;
   } catch (e) {
-    error("Failed to load scheduled messages");
+    error("Failed to load scheduled messages: " + extractApiError(e));
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -197,7 +205,7 @@ async function scheduleMessage() {
     form.payload = '{"text": "Hello!"}';
     await loadScheduled();
   } catch (e) {
-    error("Failed to schedule message");
+    error("Failed to schedule message: " + extractApiError(e));
   }
 }
 
@@ -206,8 +214,8 @@ async function deleteScheduled(id: string) {
     await del(`/api/schedule/${id}`);
     success("Deleted");
     await loadScheduled();
-  } catch {
-    error("Failed to delete");
+  } catch (e) {
+    error("Failed to delete: " + extractApiError(e));
   }
 }
 

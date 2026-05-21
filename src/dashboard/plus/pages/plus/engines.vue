@@ -265,8 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { useWahaApi } from "~/composables/useWahaApi";
-import { useToast } from "~/composables/useToast";
+
 
 interface Session {
   name: string;
@@ -385,9 +384,9 @@ async function loadEngines() {
     } else {
       engineCards.value = fallbackEngines;
     }
-  } catch {
+  } catch (e) {
     engineCards.value = fallbackEngines;
-    error("Failed to load engine info — showing defaults");
+    error("Failed to load engine info — showing defaults: " + extractApiError(e));
   } finally {
     loadingEngines.value = false;
   }
@@ -434,8 +433,8 @@ async function createSession() {
     success("Session created");
     showCreate.value = false;
     await loadSessions();
-  } catch {
-    error("Failed to create session");
+  } catch (e) {
+    error("Failed to create session: " + extractApiError(e));
   } finally {
     isCreating.value = false;
   }
@@ -468,8 +467,8 @@ async function switchEngine() {
     success(`Successfully switched engine for ${sessionToSwitch.value.name}`);
     showSwitch.value = false;
     await loadSessions();
-  } catch {
-    error("Failed to switch engine");
+  } catch (e) {
+    error("Failed to switch engine: " + extractApiError(e));
   } finally {
     isSwitching.value = false;
   }
@@ -477,13 +476,32 @@ async function switchEngine() {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+function startPolling() {
+  pollTimer = setInterval(loadSessions, 15000);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
 onMounted(async () => {
   await Promise.all([loadEngines(), loadSessions()]);
-  pollTimer = setInterval(loadSessions, 15000);
+  startPolling();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopPolling();
+    } else {
+      loadSessions();
+      startPolling();
+    }
+  });
 });
 
 onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer);
+  stopPolling();
 });
 </script>
 

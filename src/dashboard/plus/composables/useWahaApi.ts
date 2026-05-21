@@ -71,33 +71,49 @@ export function useWahaApi() {
       ...extra,
       headers: { ...headers(), ...(extra?.headers as Record<string, string>) },
     };
-    return $fetch<T>(`${apiBase()}${path}`, merged);
+    try {
+      return await $fetch<T>(`${apiBase()}${path}`, merged);
+    } catch (e: any) {
+      throwOnPlus403(e);
+    }
   }
 
   async function post<T>(path: string, body?: unknown): Promise<T> {
     await init();
-    return $fetch<T>(`${apiBase()}${path}`, {
-      method: "POST",
-      headers: headers(),
-      body: body as Record<string, unknown>,
-    });
+    try {
+      return await $fetch<T>(`${apiBase()}${path}`, {
+        method: "POST",
+        headers: headers(),
+        body: body as Record<string, unknown>,
+      });
+    } catch (e: any) {
+      throwOnPlus403(e);
+    }
   }
 
   async function put<T>(path: string, body?: unknown): Promise<T> {
     await init();
-    return $fetch<T>(`${apiBase()}${path}`, {
-      method: "PUT",
-      headers: headers(),
-      body: body as Record<string, unknown>,
-    });
+    try {
+      return await $fetch<T>(`${apiBase()}${path}`, {
+        method: "PUT",
+        headers: headers(),
+        body: body as Record<string, unknown>,
+      });
+    } catch (e: any) {
+      throwOnPlus403(e);
+    }
   }
 
   async function del<T>(path: string): Promise<T> {
     await init();
-    return $fetch<T>(`${apiBase()}${path}`, {
-      method: "DELETE",
-      headers: headers(),
-    });
+    try {
+      return await $fetch<T>(`${apiBase()}${path}`, {
+        method: "DELETE",
+        headers: headers(),
+      });
+    } catch (e: any) {
+      throwOnPlus403(e);
+    }
   }
 
   return {
@@ -111,4 +127,19 @@ export function useWahaApi() {
     put,
     del,
   };
+}
+
+export function extractApiError(e: any): string {
+  const data = e?.response?._data || e?.data || {};
+  if (typeof data === "string") return data;
+  return data?.message || data?.error || e?.message || "Unknown error";
+}
+
+function throwOnPlus403(e: any): never {
+  const status = e?.response?.status || e?.status || 0;
+  const data = e?.response?._data || e?.data || {};
+  if (status === 403 && typeof data === "object" && data?.message?.includes?.("AvailableInPlusVersion")) {
+    throw new Error("This feature requires WAHA Plus");
+  }
+  throw e;
 }

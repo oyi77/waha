@@ -464,8 +464,8 @@ async function copyText(text: string, key: string) {
     setTimeout(() => {
       copied[key] = false;
     }, 1500);
-  } catch {
-    error("Failed to copy to clipboard");
+  } catch (e) {
+    error("Failed to copy to clipboard: " + extractApiError(e));
   }
 }
 

@@ -1,8 +1,8 @@
 <template>
   <div class="app-shell">
-    <nav class="sidebar" :class="{ open: sidebarOpen }">
+    <nav class="sidebar" :class="{ open: sidebarOpen }" aria-label="Main navigation">
       <div class="sidebar-logo">
-        <span class="logo-icon">🦛</span>
+        <span class="logo-icon" aria-hidden="true">🦛</span>
         <span class="logo-text">WAHA</span>
       </div>
 
@@ -22,7 +22,7 @@
           <span class="nav-icon">◎</span> Sessions
         </NuxtLink>
         <NuxtLink to="/Workers" class="nav-item" @click="closeSidebar">
-          <span class="nav-icon">⚙</span> Workers
+          <span class="nav-icon">⛭</span> Workers
         </NuxtLink>
       </div>
 
@@ -71,7 +71,7 @@
 
     <div class="content-area">
       <header class="topbar">
-        <button class="menu-btn" @click="sidebarOpen = !sidebarOpen">
+        <button class="menu-btn" @click="sidebarOpen = !sidebarOpen" :aria-expanded="sidebarOpen" aria-label="Toggle navigation menu">
           <span>☰</span>
         </button>
         <span class="topbar-title">{{ pageTitle }}</span>
@@ -81,6 +81,7 @@
           target="_blank"
           rel="noopener"
           class="topbar-link"
+          aria-label="WAHA documentation (opens in new tab)"
           >Docs ↗</a
         >
       </header>
@@ -124,6 +125,12 @@ const pageTitle = computed(() => pageTitles[route.path] ?? "WAHA");
 function closeSidebar() {
   sidebarOpen.value = false;
 }
+
+onMounted(() => {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sidebarOpen.value) sidebarOpen.value = false;
+  });
+});
 </script>
 
 <style scoped>
@@ -269,6 +276,8 @@ function closeSidebar() {
   color: var(--text-muted);
   border: 1px solid var(--border);
   padding: 6px 10px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--radius-sm);
   font-size: 16px;
 }

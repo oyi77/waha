@@ -5,19 +5,24 @@
       <div class="page-subtitle">Message statistics and session activity</div>
     </div>
 
-    <div style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap">
-      <select v-model="filterSession" style="width: auto" @change="loadData">
+    <div class="filter-bar">
+      <select v-model="filterSession" class="filter-select" @change="loadData">
         <option value="">All Sessions</option>
         <option v-for="s in sessions" :key="s" :value="s">{{ s }}</option>
       </select>
-      <select v-model="filterRange" style="width: auto" @change="loadData">
+      <select v-model="filterRange" class="filter-select" @change="loadData">
         <option value="7">Last 7 days</option>
         <option value="30">Last 30 days</option>
         <option value="90">Last 90 days</option>
       </select>
     </div>
 
-    <div class="grid-4 stagger" style="margin-bottom: 28px">
+    <div v-if="loading" class="empty-state">
+      <div class="empty-state-icon">⟳</div>
+      <div class="empty-state-text">Loading analytics…</div>
+    </div>
+
+    <div v-else class="grid-4 stagger" style="margin-bottom: 28px">
       <div class="stat-card">
         <div class="stat-card-value">{{ summary.totalSent }}</div>
         <div class="stat-card-label">Sent</div>
@@ -47,6 +52,8 @@
       </div>
       <svg
         v-else
+        role="img"
+        aria-label="Daily message activity chart showing sent and received messages over time"
         :viewBox="`0 0 ${chartW} ${chartH}`"
         style="width: 100%; height: 180px; display: block"
       >
@@ -102,7 +109,8 @@
     <div v-if="messages.length === 0" class="empty-state">
       <div class="empty-state-text">No messages</div>
     </div>
-    <div v-else class="card" style="padding: 0; overflow: hidden">
+    <div v-else class="card" style="padding: 0">
+      <div style="overflow-x: auto">
       <table>
         <thead>
           <tr>
@@ -151,11 +159,13 @@
           </tr>
         </tbody>
       </table>
+      </div>
       <div
         style="display: flex; justify-content: center; padding: 12px; gap: 8px"
       >
         <button
           class="btn-ghost"
+          aria-label="Previous page"
           :disabled="page === 1"
           @click="
             page--;
@@ -170,6 +180,7 @@
         >
         <button
           class="btn-ghost"
+          aria-label="Next page"
           :disabled="messages.length < pageSize"
           @click="
             page++;
@@ -202,6 +213,7 @@ const { get } = useWahaApi();
 const { error } = useToast();
 
 const sessions = ref<string[]>([]);
+const loading = ref(true);
 const filterSession = ref("");
 const filterRange = ref("7");
 const summary = reactive({
@@ -273,19 +285,22 @@ async function loadSessions() {
   try {
     const data = await get<{ name: string }[]>("/api/sessions?all=true");
     sessions.value = data.map((s) => s.name);
-  } catch {
-    error("Failed to load sessions");
+  } catch (e) {
+    error("Failed to load sessions: " + extractApiError(e));
   }
 }
 
 async function loadSummary() {
+  loading.value = true;
   try {
     const params = new URLSearchParams({ days: filterRange.value });
     if (filterSession.value) params.set("session", filterSession.value);
     const data = await get<typeof summary>(`/api/analytics/summary?${params}`);
     Object.assign(summary, data);
-  } catch {
-    error("Failed to load summary");
+  } catch (e) {
+    error("Failed to load summary: " + extractApiError(e));
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -295,9 +310,9 @@ async function loadChart() {
     if (filterSession.value) params.set("session", filterSession.value);
     const data = await get<DailyData[]>(`/api/analytics/daily?${params}`);
     chartData.value = data;
-  } catch {
+  } catch (e) {
     chartData.value = [];
-    error("Failed to load chart data");
+    error("Failed to load chart data: " + extractApiError(e));
   }
 }
 
@@ -310,8 +325,8 @@ async function loadMessages() {
     if (filterSession.value) params.set("session", filterSession.value);
     const data = await get<Message[]>(`/api/messages/log?${params}`);
     messages.value = data;
-  } catch {
-    error("Failed to load messages");
+  } catch (e) {
+    error("Failed to load messages: " + extractApiError(e));
   }
 }
 
@@ -325,3 +340,23 @@ onMounted(async () => {
   await loadData();
 });
 </script>
+
+<style scoped>
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  width: auto;
+  min-width: 140px;
+}
+
+@media (max-width: 600px) {
+  .filter-select {
+    width: 100%;
+  }
+}
+</style>

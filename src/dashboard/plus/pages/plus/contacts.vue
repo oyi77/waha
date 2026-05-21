@@ -162,8 +162,8 @@ async function loadSessions() {
     if (sessions.value.length > 0 && !session.value) {
       session.value = sessions.value[0];
     }
-  } catch {
-    error("Failed to load sessions");
+  } catch (e) {
+    error("Failed to load sessions: " + extractApiError(e));
   }
 }
 
@@ -213,8 +213,8 @@ async function checkContacts() {
     });
     results.value = data;
     success(`Checked ${data.length} numbers — ${validCount.value} valid`);
-  } catch {
-    error("Failed to check contacts");
+  } catch (e) {
+    error("Failed to check contacts: " + extractApiError(e));
   } finally {
     checking.value = false;
   }

@@ -148,9 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { useWahaApi } from '~/composables/useWahaApi';
-import { useToast } from '~/composables/useToast';
+
 
 interface ApiKey {
   id: string;
@@ -185,8 +183,8 @@ async function copyKey(key: string) {
   try {
     await navigator.clipboard.writeText(key);
     success('Copied to clipboard');
-  } catch {
-    error('Failed to copy');
+  } catch (e) {
+    error('Failed to copy: ' + extractApiError(e));
   }
 }
 
@@ -195,7 +193,7 @@ async function loadAll() {
   try {
     const [keysData, sessionsData] = await Promise.allSettled([
       get<ApiKey[]>('/api/keys'),
-      get<{ name: string }[]>('/api/engines'),
+      get<{ name: string }[]>('/api/sessions?all=true'),
     ]);
     if (keysData.status === 'fulfilled') {
       keys.value = keysData.value;
@@ -204,7 +202,7 @@ async function loadAll() {
       sessions.value = sessionsData.value.map((e: { name: string }) => e.name);
     }
   } catch (e) {
-    error('Failed to load keys');
+    error('Failed to load keys: ' + extractApiError(e));
   } finally {
     loading.value = false;
   }
@@ -226,7 +224,7 @@ async function createKey() {
     form.session = '';
     await loadAll();
   } catch (e) {
-    error('Failed to create key');
+    error('Failed to create key: ' + extractApiError(e));
   } finally {
     creating.value = false;
   }
@@ -240,8 +238,8 @@ async function toggleKey(k: ApiKey) {
       session: k.session,
     });
     await loadAll();
-  } catch {
-    error('Failed to update key');
+  } catch (e) {
+    error('Failed to update key: ' + extractApiError(e));
   }
 }
 
@@ -256,8 +254,8 @@ async function deleteKey() {
     await del(`/api/keys/${id}`);
     success('Deleted');
     await loadAll();
-  } catch {
-    error('Failed to delete key');
+  } catch (e) {
+    error('Failed to delete key: ' + extractApiError(e));
   }
 }
 

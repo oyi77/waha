@@ -2,7 +2,7 @@
   <div class="page-wrapper">
     <div
       class="page-header"
-      style="display: flex; align-items: center; justify-content: space-between"
+      style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px"
     >
       <div>
         <div class="page-title">⚙ Workers</div>
@@ -50,15 +50,10 @@
             v-for="session in sessions"
             :key="session.name"
             class="session-row"
+            role="button"
+            tabindex="0"
             @click="openSessionDetail(session)"
-            style="
-              cursor: pointer;
-              padding: 6px;
-              border-radius: var(--radius-sm);
-              transition: background 0.2s;
-            "
-            onmouseover="this.style.background = 'var(--surface-hover)'"
-            onmouseout="this.style.background = 'transparent'"
+            @keydown.enter="openSessionDetail(session)"
           >
             <span class="session-name">{{ session.name }}</span>
             <div style="display: flex; gap: 6px">
@@ -88,6 +83,10 @@
       v-if="selectedSession"
       class="modal-overlay"
       @click.self="closeSessionDetail"
+      @keydown.escape="closeSessionDetail"
+      ref="modalOverlay"
+      role="dialog"
+      aria-modal="true"
     >
       <div class="modal-box">
         <div
@@ -106,6 +105,7 @@
           >
           <button
             class="btn-ghost"
+            aria-label="Close session detail"
             @click="closeSessionDetail"
             style="padding: 4px 8px"
           >
@@ -180,9 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
-import { useWahaApi } from "~/composables/useWahaApi";
-import { useToast } from "~/composables/useToast";
+
 
 interface SessionMe {
   id: string;
@@ -219,6 +217,39 @@ const sessions = ref<SessionInfo[]>([]);
 const selectedSession = ref<SessionInfo | null>(null);
 const engineToSwitch = ref<string>("");
 const isSwitching = ref(false);
+const modalOverlay = ref<HTMLElement | null>(null);
+
+function trapFocus(e: KeyboardEvent) {
+  if (!modalOverlay.value || e.key !== "Tab") return;
+  const focusable = modalOverlay.value.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey) {
+    if (document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    }
+  } else {
+    if (document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+}
+
+watch(selectedSession, (val) => {
+  if (val) {
+    document.addEventListener("keydown", trapFocus);
+    nextTick(() => {
+      modalOverlay.value?.querySelector<HTMLElement>("[autofocus], button")?.focus();
+    });
+  } else {
+    document.removeEventListener("keydown", trapFocus);
+  }
+});
 
 const workerLabel = computed<string>(() => {
   return serverStatus.value?.worker?.id ?? "default";
@@ -297,7 +328,7 @@ async function load(): Promise<void> {
       }
     }
   } catch (err: unknown) {
-    error("Failed to load worker info");
+    error("Failed to load worker info: " + extractApiError(err));
   } finally {
     loading.value = false;
   }
@@ -329,7 +360,7 @@ async function switchEngine() {
     success(`Successfully switched engine for ${name}`);
     await load();
   } catch (err: unknown) {
-    error("Failed to switch engine");
+    error("Failed to switch engine: " + extractApiError(err));
   } finally {
     isSwitching.value = false;
     closeSessionDetail();
@@ -338,13 +369,32 @@ async function switchEngine() {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+function startPolling() {
+  pollTimer = setInterval(load, 15000);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
 onMounted(async () => {
   await load();
-  pollTimer = setInterval(load, 15000);
+  startPolling();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopPolling();
+    } else {
+      load();
+      startPolling();
+    }
+  });
 });
 
 onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer);
+  stopPolling();
 });
 </script>
 
@@ -420,6 +470,20 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.session-row:hover,
+.session-row:focus-visible {
+  background: var(--surface-hover);
+}
+
+.session-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .session-name {

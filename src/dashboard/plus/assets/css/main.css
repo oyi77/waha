@@ -68,7 +68,8 @@ textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  padding: 8px 12px;
+  padding: 10px 12px;
+  min-height: 44px;
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
@@ -94,6 +95,10 @@ button {
   font-size: 13px;
   font-weight: 500;
   padding: 8px 16px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s;
 }
 
@@ -160,7 +165,7 @@ button {
   gap: 5px;
   padding: 3px 10px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -267,7 +272,7 @@ tbody tr:hover {
   border-radius: var(--radius-lg);
   padding: 28px;
   width: 480px;
-  max-width: calc(100vw - 40px);
+  max-width: min(480px, calc(100vw - 24px));
   animation: slide-up 0.2s ease;
 }
 
@@ -357,6 +362,8 @@ tbody tr:hover {
   display: inline-block;
   width: 36px;
   height: 20px;
+  padding: 12px 0;
+  margin: -12px 0;
 }
 
 .toggle-switch input {
@@ -537,6 +544,9 @@ tbody tr:hover {
   .grid-3 {
     grid-template-columns: 1fr 1fr;
   }
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 600px) {
@@ -548,4 +558,40 @@ tbody tr:hover {
   .page-wrapper {
     padding: 16px;
   }
+  .modal-box {
+    padding: 20px;
+  }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.2);
+  border-radius: 4px;
 }

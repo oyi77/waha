@@ -20,7 +20,7 @@
               </div>
             </div>
             <label class="toggle-switch">
-              <input v-model="sessionLc.autoRestartOnBoot" type="checkbox" />
+              <input v-model="sessionLc.autoRestartOnBoot" type="checkbox" aria-label="Auto-restart on boot" />
               <span class="toggle-slider" />
             </label>
           </div>
@@ -32,7 +32,7 @@
               </div>
             </div>
             <label class="toggle-switch">
-              <input v-model="sessionLc.autoRestartFailed" type="checkbox" />
+              <input v-model="sessionLc.autoRestartFailed" type="checkbox" aria-label="Auto-restart failed sessions" />
               <span class="toggle-slider" />
             </label>
           </div>
@@ -47,7 +47,7 @@
               </div>
             </div>
             <label class="toggle-switch">
-              <input v-model="sessionLc.restartAllSessions" type="checkbox" />
+              <input v-model="sessionLc.restartAllSessions" type="checkbox" aria-label="Restart all sessions" />
               <span class="toggle-slider" />
             </label>
           </div>
@@ -64,6 +64,7 @@
               min="0"
               max="300"
               class="settings-number"
+              aria-label="Auto-start delay in seconds"
             />
           </div>
           <div class="settings-row">
@@ -203,18 +204,12 @@
       </div>
     </div>
 
-    <!-- Toast for errors -->
-    <div v-if="credError" class="toast-error">{{ credError }}</div>
-    <div v-if="credSuccess" class="toast-success">
-      Credentials updated successfully!
-    </div>
+    <!-- Toast notifications handled by useToast() -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
-import { useWahaApi } from "~/composables/useWahaApi";
-import { useToast } from "~/composables/useToast";
+
 
 interface ServerStatus {
   startTimestamp: number;
@@ -245,8 +240,6 @@ const dashboardSettings = ref<DashboardSettings>({ username: "", source: "" });
 
 const showCredentials = ref(false);
 const credSaving = ref(false);
-const credError = ref("");
-const credSuccess = ref(false);
 
 // Session lifecycle settings from API (persisted to DB)
 const sessionLc = reactive<SessionLcSettings>({
@@ -306,7 +299,7 @@ async function load() {
       sessionLc.autoStartDelay = lcSettings.value.autoStartDelay;
     }
   } catch (err) {
-    error("Failed to load settings");
+    error("Failed to load settings: " + extractApiError(err));
   }
 }
 
@@ -320,25 +313,24 @@ async function saveSettings() {
       autoStartDelay: sessionLc.autoStartDelay,
     });
     success("Settings saved");
-  } catch {
-    error("Failed to save settings");
+  } catch (e) {
+    error("Failed to save settings: " + extractApiError(e));
   } finally {
     saving.value = false;
   }
 }
 
 async function saveCredentials() {
-  credError.value = "";
   if (
     !credForm.currentPassword ||
     !credForm.newUsername ||
     !credForm.newPassword
   ) {
-    credError.value = "All fields are required";
+    error("All fields are required");
     return;
   }
   if (credForm.newPassword.length < 6) {
-    credError.value = "Password must be at least 6 characters";
+    error("Password must be at least 6 characters");
     return;
   }
   credSaving.value = true;
@@ -348,19 +340,16 @@ async function saveCredentials() {
       newUsername: credForm.newUsername,
       newPassword: credForm.newPassword,
     });
-    credSuccess.value = true;
+    success("Credentials updated successfully!");
     showCredentials.value = false;
     credForm.currentPassword = "";
     credForm.newUsername = "";
     credForm.newPassword = "";
-    setTimeout(() => {
-      credSuccess.value = false;
-    }, 3000);
   } catch (err: unknown) {
     const msg =
       (err as { data?: { message?: string } })?.data?.message ??
       "Failed to update credentials";
-    credError.value = msg;
+    error(msg);
   } finally {
     credSaving.value = false;
   }
@@ -400,6 +389,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
@@ -521,31 +511,5 @@ onMounted(() => {
 .badge-working {
   background: rgba(34, 197, 94, 0.15);
   color: var(--accent);
-}
-
-.toast-error {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  padding: 12px 20px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-  border-radius: var(--radius);
-  font-size: 13px;
-  z-index: 999;
-}
-
-.toast-success {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  padding: 12px 20px;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: var(--accent);
-  border-radius: var(--radius);
-  font-size: 13px;
-  z-index: 999;
 }
 </style>

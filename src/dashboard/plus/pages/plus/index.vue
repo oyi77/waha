@@ -5,7 +5,12 @@
       <div class="page-subtitle">WAHA Plus — advanced features overview</div>
     </div>
 
-    <div class="stats-row grid-3 stagger">
+    <div v-if="statsError" class="empty-state">
+      <div class="empty-state-icon">!</div>
+      <div class="empty-state-text">Failed to load statistics</div>
+      <button class="btn-ghost" style="margin-top: 8px" @click="loadStats">Retry</button>
+    </div>
+    <div v-else class="stats-row grid-3 stagger">
       <div class="stat-card">
         <div class="stat-card-value">{{ stats.scheduled }}</div>
         <div class="stat-card-label">Scheduled Messages</div>
@@ -31,7 +36,7 @@
         :to="feat.href"
         class="feature-card"
       >
-        <div class="feature-icon">{{ feat.icon }}</div>
+        <div class="feature-icon" aria-hidden="true">{{ feat.icon }}</div>
         <div class="feature-name">{{ feat.name }}</div>
         <div class="feature-desc">{{ feat.desc }}</div>
       </NuxtLink>
@@ -43,6 +48,7 @@
 const { get } = useWahaApi();
 
 const stats = reactive({ scheduled: 0, templates: 0, rules: 0 });
+const statsError = ref(false);
 
 const features = [
   {
@@ -108,6 +114,7 @@ const features = [
 ];
 
 async function loadStats() {
+  statsError.value = false;
   try {
     const [sched, tmpl, rules] = await Promise.allSettled([
       get<unknown[]>("/api/schedule"),
@@ -120,7 +127,12 @@ async function loadStats() {
       stats.templates = (tmpl.value as unknown[]).length;
     if (rules.status === "fulfilled")
       stats.rules = (rules.value as unknown[]).length;
-  } catch {}
+    if (sched.status === "rejected" && tmpl.status === "rejected" && rules.status === "rejected") {
+      statsError.value = true;
+    }
+  } catch {
+    statsError.value = true;
+  }
 }
 
 onMounted(loadStats);

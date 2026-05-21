@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="toasts-container">
+    <div class="toasts-container" role="alert" aria-live="polite">
       <div
         v-for="toast in toasts"
         :key="toast.id"
@@ -49,7 +49,7 @@ const icons: Record<string, string> = {
   animation: slide-up 0.25s ease;
   pointer-events: all;
   cursor: pointer;
-  max-width: 340px;
+  max-width: min(340px, calc(100vw - 48px));
 }
 
 .toast-success {
@@ -73,5 +73,18 @@ const icons: Record<string, string> = {
 .toast-icon {
   font-size: 14px;
   font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .toasts-container {
+    bottom: 60px;
+    left: 24px;
+    right: 24px;
+    align-items: stretch;
+  }
+
+  .toast {
+    max-width: 100%;
+  }
 }
 </style>

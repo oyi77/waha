@@ -2,6 +2,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
   OnModuleInit,
   Optional,
   UnprocessableEntityException,
@@ -63,7 +64,7 @@ import { SettingsService } from './settings.service';
 const MAX_SESSIONS_ENV = 'WAHA_MAX_SESSIONS';
 
 @Injectable()
-export class SessionManagerPlus extends SessionManager implements OnModuleInit {
+export class SessionManagerPlus extends SessionManager implements OnModuleInit, OnModuleDestroy {
   SESSION_STOP_TIMEOUT = 3000;
 
   // Map: sessionName -> WhatsappSession (null = stopped, absent = removed)
@@ -83,6 +84,11 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     restartAllSessions: boolean;
     autoStartDelay: number;
   } | null = null;
+
+  private _failedSessionCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private _failedRestartAttempts: Map<string, number> = new Map();
+  private static readonly FAILED_CHECK_INTERVAL_MS = 60_000;
+  private static readonly MAX_FAILED_RESTART_ATTEMPTS = 5;
 
   constructor(
     config: WhatsappConfigService,
@@ -574,6 +580,71 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     if (this.messageLogService) this.messageLogService.setManager(this);
     if (this.analyticsService) this.analyticsService.setManager(this);
     if (this.settingsService) this.settingsService.setManager(this);
+    // Start periodic health check for FAILED session auto-restart
+    this.startFailedSessionHealthCheck();
+  }
+
+  async onModuleDestroy() {
+    if (this._failedSessionCheckTimer) {
+      clearInterval(this._failedSessionCheckTimer);
+      this._failedSessionCheckTimer = null;
+    }
+  }
+
+  //
+  // Failed Session Health Check
+  //
+  private startFailedSessionHealthCheck() {
+    this._failedSessionCheckTimer = setInterval(
+      () => this.checkAndRestartFailedSessions(),
+      SessionManagerPlus.FAILED_CHECK_INTERVAL_MS,
+    );
+    // Allow the process to exit even if the timer is active
+    if (this._failedSessionCheckTimer?.unref) {
+      this._failedSessionCheckTimer.unref();
+    }
+  }
+
+  private async checkAndRestartFailedSessions() {
+    try {
+      const settings = await this.getSessionLifecycleSettings();
+      if (!settings.autoRestartFailed) return;
+
+      for (const [name, session] of this.sessions.entries()) {
+        if (!session) continue;
+        if (session.status !== WAHASessionStatus.FAILED) {
+          // Session recovered or moved to another state — reset counter
+          this._failedRestartAttempts.delete(name);
+          continue;
+        }
+
+        const attempts = this._failedRestartAttempts.get(name) ?? 0;
+        if (attempts >= SessionManagerPlus.MAX_FAILED_RESTART_ATTEMPTS) {
+          this.log.warn(
+            { session: name, attempts },
+            'Auto-restart for FAILED session reached max attempts — skipping',
+          );
+          continue;
+        }
+
+        this._failedRestartAttempts.set(name, attempts + 1);
+        this.log.info(
+          { session: name, attempt: attempts + 1, max: SessionManagerPlus.MAX_FAILED_RESTART_ATTEMPTS },
+          'Auto-restarting FAILED session...',
+        );
+
+        await this.withLock(name, async () => {
+          await this.start(name).catch((err) => {
+            this.log.error(
+              { session: name, error: err?.message ?? err },
+              'Auto-restart of FAILED session failed',
+            );
+          });
+        });
+      }
+    } catch (err) {
+      this.log.error({ error: err }, 'Failed session health check error');
+    }
   }
 
   // ─── Plus: Message Event Subscription ────────────────────────────────────────

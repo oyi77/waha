@@ -318,8 +318,8 @@ async function copyUrl() {
   try {
     await navigator.clipboard.writeText(mcpUrl.value);
     success("Copied");
-  } catch {
-    error("Failed to copy to clipboard");
+  } catch (e) {
+    error("Failed to copy to clipboard: " + extractApiError(e));
   }
 }
 
@@ -327,8 +327,8 @@ async function copy(text: string) {
   try {
     await navigator.clipboard.writeText(text);
     success("Copied");
-  } catch {
-    error("Failed to copy to clipboard");
+  } catch (e) {
+    error("Failed to copy to clipboard: " + extractApiError(e));
   }
 }
 
@@ -339,8 +339,8 @@ async function loadSessions() {
     if (sessions.value.length > 0 && !tester.session) {
       tester.session = sessions.value[0];
     }
-  } catch {
-    error("Failed to load sessions");
+  } catch (e) {
+    error("Failed to load sessions: " + extractApiError(e));
   }
 }
 

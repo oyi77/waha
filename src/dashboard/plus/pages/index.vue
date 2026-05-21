@@ -83,9 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
-import { useWahaApi } from "~/composables/useWahaApi";
-import { useToast } from "~/composables/useToast";
+
 
 interface Session {
   name: string;
@@ -130,7 +128,7 @@ async function loadSessions() {
     const data = await get<Session[]>("/api/sessions?all=true");
     sessions.value = data;
   } catch (e) {
-    error("Failed to load dashboard data");
+    error("Failed to load dashboard data: " + extractApiError(e));
   } finally {
     loading.value = false;
   }
