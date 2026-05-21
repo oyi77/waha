@@ -264,9 +264,15 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
 
   async start(name: string): Promise<SessionDTO> {
     if (this.isRunning(name)) {
-      throw new UnprocessableEntityException(
-        `Session '${name}' is already started.`,
-      );
+      // Allow restarting sessions that aren't WORKING (FAILED, SCAN_QR_CODE, etc.)
+      const session = this.sessions.get(name);
+      if (session?.status !== WAHASessionStatus.WORKING) {
+        await this.stop(name, true);
+      } else {
+        throw new UnprocessableEntityException(
+          `Session '${name}' is already started.`,
+        );
+      }
     }
 
     this.checkSessionLimit();
