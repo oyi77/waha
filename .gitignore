@@ -18,10 +18,9 @@ src/test.ts
 src/test.js
 test.js
 .wwebjs_cache
-src/dashboard/
-!src/dashboard/index.html
-!src/dashboard/login.html
-!src/dashboard/plus-nav.js
+src/dashboard/plus/.output/
+src/dashboard/plus/.nuxt/
+src/dashboard/plus/node_modules/
 !src/dashboard/plus/
 !src/dashboard/plus/**
 .eslintcache

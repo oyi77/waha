@@ -1564,7 +1564,9 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   public channelsCreateChannel(
     request: CreateChannelRequest,
   ): Promise<Channel> {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
+    );
   }
 
   public async channelsGetChannel(id: string): Promise<Channel> {
@@ -1584,23 +1586,33 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   }
 
   public channelsDeleteChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
+    );
   }
 
   public channelsFollowChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
+    );
   }
 
   public channelsUnfollowChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
+    );
   }
 
   public channelsMuteChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
+    );
   }
 
   public channelsUnmuteChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
+    );
   }
 
   /**

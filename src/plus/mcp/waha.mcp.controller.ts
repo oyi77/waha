@@ -1,4 +1,4 @@
-import { All, Controller, Req, Res, UseGuards } from '@nestjs/common';
+import { All, BadRequestException, Controller, NotFoundException, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiSecurity } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -325,12 +325,12 @@ export class WahaMcpController {
       case 'waha_send_from_template': {
         const { session, chatId, templateName } = args;
         const template = await this.templatesService.getByName(templateName);
-        if (!template) throw new Error(`Template not found: ${templateName}`);
+        if (!template) throw new NotFoundException(`Template not found: ${templateName}`);
         const whatsapp = await this.manager.getWorkingSession(session);
         if (template.type === 'text' && template.payload.text) {
           return whatsapp.sendText({ chatId, session, text: template.payload.text });
         }
-        throw new Error(`Cannot send template type: ${template.type} via MCP`);
+        throw new BadRequestException(`Cannot send template type: ${template.type} via MCP`);
       }
 
       case 'waha_broadcast_text': {
@@ -362,7 +362,7 @@ export class WahaMcpController {
       }
 
       default:
-        throw new Error(`Unknown tool: ${name}`);
+        throw new BadRequestException(`Unknown tool: ${name}`);
     }
   }
 

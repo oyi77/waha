@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -147,7 +148,7 @@ export class ChattingController {
   ): Promise<any> {
     const whatsapp = await this.manager.getWorkingSession(request.session);
     if (!request.text.includes(request.preview.url)) {
-      throw new Error(
+      throw new BadRequestException(
         '"text" must include the URL provided in the "preview.url"',
       );
     }

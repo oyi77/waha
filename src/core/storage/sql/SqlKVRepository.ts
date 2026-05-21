@@ -14,7 +14,7 @@ export class SqlKVRepository<Entity> {
   protected jsonQuery: IJsonQuery;
 
   get schema(): Schema {
-    throw new Error('Not implemented');
+    throw new Error(`Not implemented: ${this.constructor.name} must override the 'schema' getter`);
   }
 
   get metadata(): Map<string, (entity: Entity) => any> {

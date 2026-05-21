@@ -91,7 +91,7 @@ export class ChatWootErrorReporter {
   ): Promise<void> {
     // TODO: Add a way to enable it back in config
     // https://github.com/devlikeapro/waha/issues/1395
-    return null;
+    return;
 
     if (!conversation) {
       this.logger.warn(

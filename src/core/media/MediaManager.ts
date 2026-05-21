@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { IMediaEngineProcessor } from '@waha/core/media/IMediaEngineProcessor';
 import { IMediaManager } from '@waha/core/media/IMediaManager';
 import {
@@ -147,7 +148,7 @@ export class MediaManager implements IMediaManager {
     this.log.debug(`Fetching media from WhatsApp message '${messageId}'...`);
     const buffer = await processor.getMediaBuffer(message);
     if (!buffer) {
-      throw new Error(
+      throw new NotFoundException(
         `Message '${messageId}' has no media, but it has media flag in the engine`,
       );
     }

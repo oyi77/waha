@@ -5,7 +5,7 @@ import {
 } from '@adiwajshing/baileys';
 import * as grpc from '@grpc/grpc-js';
 import { connectivityState } from '@grpc/grpc-js';
-import { UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 import {
   extractDeviceId,
   getChannelInviteLink,
@@ -1137,7 +1137,9 @@ export class WhatsappSessionGoWSCore extends WhatsappSession {
   }
 
   forwardMessage(request: MessageForwardRequest): Promise<WAMessage> {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'Forward message is not supported by GOWS engine. Use WEBJS, NOWEB, or WPP instead.',
+    );
   }
 
   sendImage(request: MessageImageRequest) {
@@ -1315,7 +1317,9 @@ export class WhatsappSessionGoWSCore extends WhatsappSession {
   }
 
   public deleteGroup(id) {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'Group deletion is not supported by this engine. Use leaveGroup() instead.',
+    );
   }
 
   @Activity()
@@ -1471,8 +1475,6 @@ export class WhatsappSessionGoWSCore extends WhatsappSession {
 
   @Activity()
   async cancelEvent(eventId: string): Promise<WAMessage> {
-    throw new Error('Method not implemented.');
-
     const key = parseMessageIdSerialized(eventId, false);
     const jid = key.remoteJid;
     const request = new messages.CancelEventMessageRequest({
@@ -1533,7 +1535,7 @@ export class WhatsappSessionGoWSCore extends WhatsappSession {
         break;
 
       default:
-        throw new Error('Invalid presence status');
+        throw new BadRequestException('Invalid presence status');
     }
     await promisify(method)(request);
     this.presence = presence;

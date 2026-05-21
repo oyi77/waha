@@ -1,5 +1,6 @@
 import {
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Activity } from '@waha/core/abc/activity';
@@ -469,7 +470,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
 
   async getScreenshot(): Promise<Buffer> {
     if (!this.wpp?.page) {
-      throw new Error('WPP page is not ready');
+      throw new ServiceUnavailableException('WPP page is not ready');
     }
     const screenshot = await this.wpp.page.screenshot({
       encoding: 'binary',
@@ -530,7 +531,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   public async rejectCall(from: string, id: string): Promise<void> {
     void from;
     if (!this.wpp) {
-      throw new Error('WPP client is not ready');
+      throw new ServiceUnavailableException('WPP client is not ready');
     }
     await this.wpp.rejectCall(id);
     this.activeCalls.delete(id);
@@ -539,7 +540,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   @Activity()
   public async offerCall(chatId: string, isVideo: boolean): Promise<CallData> {
     if (!this.wpp?.page) {
-      throw new Error('WPP page is not ready');
+      throw new ServiceUnavailableException('WPP page is not ready');
     }
     const normalizedChatId = this.ensureSuffix(chatId);
     const callModel = await this.wpp.page.evaluate(
@@ -575,7 +576,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   @Activity()
   public async acceptCall(callId: string): Promise<void> {
     if (!this.wpp?.page) {
-      throw new Error('WPP page is not ready');
+      throw new ServiceUnavailableException('WPP page is not ready');
     }
     await this.wpp.page.evaluate(async (id: string) => {
       return await WPP.call.accept(id);
@@ -600,7 +601,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   @Activity()
   public async terminateCall(callId?: string): Promise<void> {
     if (!this.wpp?.page) {
-      throw new Error('WPP page is not ready');
+      throw new ServiceUnavailableException('WPP page is not ready');
     }
     await this.wpp.page.evaluate(async (id: string | undefined) => {
       return await WPP.call.end(id || undefined);
@@ -1559,7 +1560,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
     void method;
     void params;
     if (!this.wpp?.page) {
-      throw new Error('WPP page is not ready');
+      throw new ServiceUnavailableException('WPP page is not ready');
     }
     let code = this.pairingCode;
     if (!code) {

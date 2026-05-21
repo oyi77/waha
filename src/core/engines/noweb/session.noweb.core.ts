@@ -37,7 +37,7 @@ import {
 import { MessageUserReceiptUpdate } from '@adiwajshing/baileys/lib/Types/Message';
 import { ILogger } from '@adiwajshing/baileys/lib/Utils/logger';
 import { isLidUser } from '@adiwajshing/baileys/lib/WABinary/jid-utils';
-import { UnprocessableEntityException } from '@nestjs/common';
+import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import {
   getChannelInviteLink,
   getPublicUrlFromDirectPath,
@@ -1654,12 +1654,14 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     }
   }
 
+  @Activity()
   public async blockContact(request: ContactRequest) {
-    throw new NotImplementedByEngineError();
+    await this.sock.updateBlockStatus(request.contactId, 'block');
   }
 
+  @Activity()
   public async unblockContact(request: ContactRequest) {
-    throw new NotImplementedByEngineError();
+    await this.sock.updateBlockStatus(request.contactId, 'unblock');
   }
 
   /**
@@ -1740,7 +1742,7 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     const groups = await this.getGroups({});
     const group = groups[id];
     if (!group) {
-      throw new Error(`Group with id '${id}' not found`);
+      throw new NotFoundException(`Group with id '${id}' not found`);
     }
     return group;
   }
@@ -1754,7 +1756,9 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   }
 
   public async deleteGroup(id) {
-    throw new NotImplementedByEngineError();
+    throw new NotImplementedByEngineError(
+      'Group deletion is not supported by NOWEB engine. Use leaveGroup() instead.',
+    );
   }
 
   public async getInfoAdminsOnly(id): Promise<SettingsSecurityChangeInfo> {

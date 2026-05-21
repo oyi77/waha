@@ -1,6 +1,7 @@
 import type { conversation_message_create } from '@figuro/chatwoot-sdk/dist/models/conversation_message_create';
 import { Processor } from '@nestjs/bullmq';
 import { JOB_CONCURRENCY } from '@waha/apps/app_sdk/constants';
+import { Logger } from 'pino';
 import { ContactConversationService } from '@waha/apps/chatwoot/client/ContactConversationService';
 import { AttachmentFromBuffer } from '@waha/apps/chatwoot/client/messages';
 import { MessageType } from '@waha/apps/chatwoot/client/types';
@@ -45,6 +46,7 @@ export class WAHASessionStatusConsumer extends ChatWootWAHABaseConsumer {
       container.ContactConversationService(),
       container.Locale(),
       container.WAHASelf(),
+      this.logger,
     );
     return await handler.handle(job.data.event as any);
   }
@@ -58,6 +60,7 @@ export class SessionStatusHandler {
     private repo: ContactConversationService,
     private l: Locale,
     private waha: WAHASelf,
+    private logger: Logger,
   ) {}
 
   async handle(data: WAHAWebhookSessionStatus) {
@@ -110,7 +113,9 @@ export class SessionStatusHandler {
           if (response.status != WAHASessionStatus.STOPPED) {
             return;
           }
-        } catch (_) {}
+        } catch (error) {
+          this.logger.warn(`Failed to fetch session info for ChatWoot status: ${error}`);
+        }
         text = this.l.key(TKey.APP_SESSION_STATUS_ERROR).r();
         text += '\n\n';
         text += this.l.key(TKey.APP_HELP_REMINDER).r();

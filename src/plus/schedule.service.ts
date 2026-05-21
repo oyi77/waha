@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { SessionManager } from '@waha/core/abc/manager.abc';
 import { generatePrefixedId } from '@waha/utils/ids';
 import Knex from 'knex';
@@ -146,7 +146,7 @@ export class ScheduleService implements OnModuleDestroy {
               await whatsapp.sendVoice(req);
               break;
             default:
-              throw new Error(`Unknown message type: ${msg.type}`);
+              throw new BadRequestException(`Unknown message type: ${msg.type}`);
           }
 
           await knex(TABLE).where({ id: msg.id }).update({
@@ -184,7 +184,7 @@ export class ScheduleService implements OnModuleDestroy {
     const scheduledAt = new Date(dto.scheduledAt).getTime();
 
     if (!Number.isFinite(scheduledAt)) {
-      throw new Error(`Invalid scheduledAt date: ${dto.scheduledAt}`);
+      throw new BadRequestException(`Invalid scheduledAt date: ${dto.scheduledAt}`);
     }
 
     const row: ScheduledRow = {

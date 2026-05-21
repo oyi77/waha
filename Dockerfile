@@ -33,12 +33,9 @@ RUN yarn build && find ./dist -name "*.d.ts" -delete
 #
 FROM node:${NODE_IMAGE_TAG} AS dashboard
 
-# jq to parse json
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq wget unzip && rm -rf /var/lib/apt/lists/*
 
-# wget, unzip
-RUN apt-get update && apt-get install -y wget unzip && rm -rf /var/lib/apt/lists/*
-
+# Download dashboard source from GitHub
 COPY waha.config.json /tmp/waha.config.json
 RUN \
     WAHA_DASHBOARD_GITHUB_REPO=$(jq -r '.waha.dashboard.repo' /tmp/waha.config.json) && \
@@ -49,6 +46,10 @@ RUN \
     && mv /tmp/dashboard/waha-dashboard-${WAHA_DASHBOARD_SHA}/* /dashboard/ \
     && rm -rf ${WAHA_DASHBOARD_SHA}.zip \
     && rm -rf /tmp/dashboard/waha-dashboard-${WAHA_DASHBOARD_SHA}
+
+# Build dashboard from source
+WORKDIR /dashboard
+RUN npm install && npm run generate
 
 #
 # GOWS
@@ -212,13 +213,12 @@ WORKDIR /app
 COPY package.json ./
 COPY --from=build /git/node_modules ./node_modules
 COPY --from=build /git/dist ./dist
-COPY --from=dashboard /dashboard ./dist/dashboard
-# Apply our custom dashboard overrides on top of the upstream dashboard
+# Copy built dashboard from dashboard stage
+COPY --from=dashboard /dashboard/.output/public/ ./dist/dashboard/
+# Apply custom dashboard overlays
 COPY src/dashboard/login.html ./dist/dashboard/
 COPY src/dashboard/plus-nav.js ./dist/dashboard/
 COPY src/dashboard/ws-reconnect-fix.js ./dist/dashboard/
-# Copy the built dashboard output (not source)
-COPY src/dashboard/plus/.output/public/ ./dist/dashboard/
 COPY --from=gows /go/gows/bin/gows /app/gows
 COPY .env.example ./.env.example
 COPY scripts/init-waha.js ./scripts/init-waha.js
