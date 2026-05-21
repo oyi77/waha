@@ -55,6 +55,7 @@ import { CheckPolicies } from '../core/auth/policies.decorator';
 import { PoliciesGuard } from '../core/auth/policies.guard';
 import { CanSession, FromBody, FromParam } from '../core/auth/policies';
 import { Action } from '@waha/core/auth/casl.types';
+import { WAHASessionStatus } from '@waha/structures/enums.dto';
 
 @ApiSecurity('api_key')
 @Controller('api/sessions')
@@ -175,7 +176,8 @@ class SessionsController {
         throw new NotFoundException('Session not found');
       }
       const config = request.config;
-      const isRunning = this.manager.isRunning(name);
+      const session = this.manager.getSession(name);
+      const previousStatus = session.status;
       await this.manager.stop(name, true);
       await this.manager.upsert(name, config);
       if (request.apps) {
@@ -185,7 +187,7 @@ class SessionsController {
           request.apps,
         );
       }
-      if (isRunning) {
+      if (previousStatus !== WAHASessionStatus.STOPPED) {
         await this.manager.start(name);
       }
     });
@@ -266,11 +268,12 @@ class SessionsController {
       if (!exists) {
         throw new NotFoundException('Session not found');
       }
-      const isRunning = this.manager.isRunning(name);
+      const session = this.manager.getSession(name);
+      const previousStatus = session.status;
       await this.manager.unpair(name);
       await this.manager.stop(name, true);
       await this.manager.logout(name);
-      if (isRunning) {
+      if (previousStatus !== WAHASessionStatus.STOPPED) {
         await this.manager.start(name);
       }
     });
@@ -305,11 +308,6 @@ class SessionsController {
     if (!request.name) {
       throw new UnprocessableEntityException('Session name is required');
     }
-    if (this.manager.isRunning(name)) {
-      const msg = `Session '${name}' is already started.`;
-      throw new UnprocessableEntityException(msg);
-    }
-
     return await this.withLock(name, async () => {
       const config = request.config;
       await this.manager.upsert(name, config);

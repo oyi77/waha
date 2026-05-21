@@ -61,8 +61,8 @@ export class AppsController {
   @UsePipes(new WAHAValidationPipe())
   async create(@Body() app: App): Promise<App> {
     const result = await this.appsService.create(this.manager, app);
-    const isRunning = this.manager.isRunning(app.session);
-    if (isRunning && app.enabled) {
+    const exists = await this.manager.exists(app.session);
+    if (exists && app.enabled) {
       await this.manager.restart(app.session);
     }
     return result;
@@ -112,8 +112,8 @@ export class AppsController {
     }
 
     const result = await this.appsService.upsert(this.manager, app);
-    const isRunning = this.manager.isRunning(app.session);
-    if (isRunning) {
+    const exists = await this.manager.exists(app.session);
+    if (exists) {
       await this.manager.restart(app.session);
     }
     return result;
@@ -132,8 +132,8 @@ export class AppsController {
       throw new ForbiddenException();
     }
     const app = await this.appsService.delete(this.manager, id);
-    const isRunning = this.manager.isRunning(app.session);
-    if (isRunning) {
+    const exists = await this.manager.exists(app.session);
+    if (exists) {
       await this.manager.restart(app.session);
     }
   }

@@ -1,0 +1,49 @@
+- generic [active]:
+  - generic [ref=e2]:
+    - img [ref=e4]
+    - generic [ref=e17]: Fetching updates .
+  - generic [ref=e18]:
+    - generic:
+      - generic: WAHA Plus Features
+      - link "📱 Sessions Manager":
+        - /url: /dashboard/plus/sessions.html
+        - generic: 📱
+        - generic: Sessions Manager
+      - link "⏰ Message Scheduling":
+        - /url: /dashboard/plus/schedule.html
+        - generic: ⏰
+        - generic: Message Scheduling
+      - link "📋 Templates":
+        - /url: /dashboard/plus/templates.html
+        - generic: 📋
+        - generic: Templates
+      - link "🤖 Auto-Reply Rules":
+        - /url: /dashboard/plus/autoreply.html
+        - generic: 🤖
+        - generic: Auto-Reply Rules
+      - link "📊 Analytics New":
+        - /url: /dashboard/plus/analytics.html
+        - generic: 📊
+        - generic: Analytics
+        - generic: New
+      - link "🔑 API Keys New":
+        - /url: /dashboard/plus/apikeys.html
+        - generic: 🔑
+        - generic: API Keys
+        - generic: New
+      - link "📇 Contact Import New":
+        - /url: /dashboard/plus/contacts.html
+        - generic: 📇
+        - generic: Contact Import
+        - generic: New
+      - link "🔌 MCP Server":
+        - /url: /dashboard/plus/mcp.html
+        - generic: 🔌
+        - generic: MCP Server
+      - link "⚙️ Engine Guide":
+        - /url: /dashboard/plus/engines.html
+        - generic: ⚙️
+        - generic: Engine Guide
+    - button "Open WAHA Plus navigation" [ref=e19] [cursor=pointer]:
+      - emphasis [ref=e20]: ✦
+      - text: Plus

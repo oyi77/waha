@@ -1,0 +1,85 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "WAHA" [ref=e3] [cursor=pointer]:
+      - /url: /dashboard
+      - img [ref=e4]
+      - text: WAHA
+    - generic [ref=e7]: /
+    - generic [ref=e8]: Settings
+    - link "← Plus Hub" [ref=e9] [cursor=pointer]:
+      - /url: /dashboard/plus/
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - heading "Dashboard Settings" [level=1] [ref=e12]
+      - paragraph [ref=e13]: Manage your dashboard login credentials
+    - generic [ref=e14]:
+      - generic [ref=e15]: Current Credentials
+      - generic [ref=e16]: Failed to load current settings. Are you logged in?
+    - generic [ref=e17]:
+      - generic [ref=e18]: Update Credentials
+      - paragraph [ref=e19]: Change your dashboard username and password. Updated credentials are saved to the database and persist across restarts.
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - generic [ref=e22]: Current Password
+          - textbox "Current Password" [ref=e23]:
+            - /placeholder: Enter your current password
+        - separator [ref=e24]
+        - generic [ref=e25]:
+          - generic [ref=e26]: New Username
+          - textbox "New Username" [ref=e27]:
+            - /placeholder: Enter new username
+        - generic [ref=e28]:
+          - generic [ref=e29]: New Password
+          - textbox "New Password" [ref=e30]:
+            - /placeholder: Enter new password
+          - generic [ref=e31]: Minimum 6 characters
+        - generic [ref=e32]:
+          - generic [ref=e33]: Confirm New Password
+          - textbox "Confirm New Password" [ref=e34]:
+            - /placeholder: Re-enter new password
+        - button "Save Credentials" [ref=e35] [cursor=pointer]
+  - generic [ref=e36]:
+    - generic:
+      - generic: WAHA Plus Features
+      - link "📱 Sessions Manager":
+        - /url: /dashboard/plus/sessions.html
+        - generic: 📱
+        - generic: Sessions Manager
+      - link "⏰ Message Scheduling":
+        - /url: /dashboard/plus/schedule.html
+        - generic: ⏰
+        - generic: Message Scheduling
+      - link "📋 Templates":
+        - /url: /dashboard/plus/templates.html
+        - generic: 📋
+        - generic: Templates
+      - link "🤖 Auto-Reply Rules":
+        - /url: /dashboard/plus/autoreply.html
+        - generic: 🤖
+        - generic: Auto-Reply Rules
+      - link "📊 Analytics New":
+        - /url: /dashboard/plus/analytics.html
+        - generic: 📊
+        - generic: Analytics
+        - generic: New
+      - link "🔑 API Keys New":
+        - /url: /dashboard/plus/apikeys.html
+        - generic: 🔑
+        - generic: API Keys
+        - generic: New
+      - link "📇 Contact Import New":
+        - /url: /dashboard/plus/contacts.html
+        - generic: 📇
+        - generic: Contact Import
+        - generic: New
+      - link "🔌 MCP Server":
+        - /url: /dashboard/plus/mcp.html
+        - generic: 🔌
+        - generic: MCP Server
+      - link "⚙️ Engine Guide":
+        - /url: /dashboard/plus/engines.html
+        - generic: ⚙️
+        - generic: Engine Guide
+    - button "Open WAHA Plus navigation" [ref=e37] [cursor=pointer]:
+      - emphasis [ref=e38]: ✦
+      - text: Plus

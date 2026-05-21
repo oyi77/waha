@@ -1,0 +1,21 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - img [ref=e5]
+    - generic [ref=e7]: WAHA
+    - generic [ref=e8]: Plus
+  - paragraph [ref=e9]: Sign in to your dashboard
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: Username
+      - textbox "Username" [active] [ref=e13]:
+        - /placeholder: waha
+    - generic [ref=e14]:
+      - generic [ref=e15]: Password
+      - textbox "Password" [ref=e16]:
+        - /placeholder: ••••••••
+    - button "Sign In" [ref=e17] [cursor=pointer]
+  - generic [ref=e18]:
+    - text: Set via
+    - code [ref=e19]: WAHA_DASHBOARD_USERNAME
+    - text: "&"
+    - code [ref=e20]: WAHA_DASHBOARD_PASSWORD

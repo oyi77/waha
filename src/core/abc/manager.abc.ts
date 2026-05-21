@@ -190,11 +190,12 @@ export abstract class SessionManager
         });
       }
 
+      const session = this.getSession(sessionName);
+      const currentStatus = session?.status ?? 'UNKNOWN';
       const msg = {
-        error:
-          'Session status is not as expected. Try again later or restart the session',
+        error: `Session '${sessionName}' is ${currentStatus}. Expected one of: ${expected.join(', ')}. Try restarting the session.`,
         session: sessionName,
-        status: 'STOPPED',
+        status: currentStatus,
         expected: expected,
       };
       throw new UnprocessableEntityException(msg);
@@ -208,8 +209,7 @@ export abstract class SessionManager
     );
     if (!valid) {
       const msg = {
-        error:
-          'Session status is not as expected. Try again later or restart the session',
+        error: `Session '${sessionName}' is ${session.status}. Expected one of: ${expected.join(', ')}. Try restarting the session.`,
         session: sessionName,
         status: session.status,
         expected: expected,

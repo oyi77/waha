@@ -1,0 +1,113 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 🦛
+      - generic [ref=e7]: WAHA
+    - generic [ref=e8]:
+      - generic [ref=e9]: Core
+      - link "⊞ Dashboard" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard/
+        - generic [ref=e11]: ⊞
+        - text: Dashboard
+      - link "◎ Sessions" [active] [ref=e12] [cursor=pointer]:
+        - /url: /dashboard/Sessions
+        - generic [ref=e13]: ◎
+        - text: Sessions
+      - link "⚙ Workers" [ref=e14] [cursor=pointer]:
+        - /url: /dashboard/Workers
+        - generic [ref=e15]: ⚙
+        - text: Workers
+      - link "◉ Event Monitor" [ref=e16] [cursor=pointer]:
+        - /url: /dashboard/event-monitor
+        - generic [ref=e17]: ◉
+        - text: Event Monitor
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - text: Plus
+        - generic [ref=e20]: ⚡
+      - link "✦ Plus Hub" [ref=e21] [cursor=pointer]:
+        - /url: /dashboard/plus
+        - generic [ref=e22]: ✦
+        - text: Plus Hub
+      - link "◎ Session Manager" [ref=e23] [cursor=pointer]:
+        - /url: /dashboard/plus/sessions
+        - generic [ref=e24]: ◎
+        - text: Session Manager
+      - link "▲ Analytics" [ref=e25] [cursor=pointer]:
+        - /url: /dashboard/plus/analytics
+        - generic [ref=e26]: ▲
+        - text: Analytics
+      - link "◷ Scheduling" [ref=e27] [cursor=pointer]:
+        - /url: /dashboard/plus/schedule
+        - generic [ref=e28]: ◷
+        - text: Scheduling
+      - link "▣ Templates" [ref=e29] [cursor=pointer]:
+        - /url: /dashboard/plus/templates
+        - generic [ref=e30]: ▣
+        - text: Templates
+      - link "↩ Auto-Reply" [ref=e31] [cursor=pointer]:
+        - /url: /dashboard/plus/autoreply
+        - generic [ref=e32]: ↩
+        - text: Auto-Reply
+      - link "⚿ API Keys" [ref=e33] [cursor=pointer]:
+        - /url: /dashboard/plus/apikeys
+        - generic [ref=e34]: ⚿
+        - text: API Keys
+      - link "◑ Contacts" [ref=e35] [cursor=pointer]:
+        - /url: /dashboard/plus/contacts
+        - generic [ref=e36]: ◑
+        - text: Contacts
+      - link "⬡ MCP Server" [ref=e37] [cursor=pointer]:
+        - /url: /dashboard/plus/mcp
+        - generic [ref=e38]: ⬡
+        - text: MCP Server
+      - link "◈ Engines" [ref=e39] [cursor=pointer]:
+        - /url: /dashboard/plus/engines
+        - generic [ref=e40]: ◈
+        - text: Engines
+      - link "✧ Claude Skills" [ref=e41] [cursor=pointer]:
+        - /url: /dashboard/plus/skills
+        - generic [ref=e42]: ✧
+        - text: Claude Skills
+  - generic [ref=e43]:
+    - banner [ref=e44]:
+      - generic [ref=e45]: Sessions
+      - link "Docs ↗" [ref=e46] [cursor=pointer]:
+        - /url: https://waha.devlike.pro/docs
+    - main [ref=e47]:
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - generic [ref=e98]: ◎ Sessions
+            - generic [ref=e99]: WhatsApp session management
+          - generic [ref=e100]:
+            - button "⟳ Refresh" [ref=e101] [cursor=pointer]
+            - button "+ New Session" [ref=e102] [cursor=pointer]
+        - generic [ref=e103]:
+          - generic [ref=e105]:
+            - generic [ref=e106]:
+              - generic [ref=e107]: CS_Laundry
+              - generic [ref=e108]:
+                - generic [ref=e109]: STOPPED
+                - generic [ref=e111]: NOWEB
+            - generic [ref=e112]:
+              - button "▶ Start" [ref=e113] [cursor=pointer]
+              - button "✕" [ref=e114] [cursor=pointer]
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - generic [ref=e118]: cs_1
+              - generic [ref=e119]:
+                - generic [ref=e120]: STOPPED
+                - generic [ref=e122]: NOWEB
+            - generic [ref=e123]:
+              - button "▶ Start" [ref=e124] [cursor=pointer]
+              - button "✕" [ref=e125] [cursor=pointer]
+          - generic [ref=e127]:
+            - generic [ref=e128]:
+              - generic [ref=e129]: warung_kecantikan
+              - generic [ref=e130]:
+                - generic [ref=e131]: STOPPED
+                - generic [ref=e133]: NOWEB
+            - generic [ref=e134]:
+              - button "▶ Start" [ref=e135] [cursor=pointer]
+              - button "✕" [ref=e136] [cursor=pointer]

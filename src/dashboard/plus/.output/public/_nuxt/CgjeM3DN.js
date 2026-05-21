@@ -1,0 +1,1 @@
+import{g as a,G as t,c as o,a as e,o as r}from"./CpnPXyIl.js";const n={class:"page-wrapper"},d=a({__name:"sessions",setup(i){return t().replace("/Sessions"),(p,s)=>(r(),o("div",n,[...s[0]||(s[0]=[e("div",{class:"page-header"},[e("div",{class:"page-title"},"◎ Session Manager"),e("div",{class:"page-subtitle"},"Redirecting to Sessions…")],-1)])]))}});export{d as default};

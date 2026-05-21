@@ -5,6 +5,7 @@ import { CheckPolicies } from '@waha/core/auth/policies.decorator';
 import { CanServer } from '@waha/core/auth/policies';
 import { Action } from '@waha/core/auth/casl.types';
 
+import { SessionManagerPlus } from './manager.plus';
 import { SettingsService } from './settings.service';
 
 class SessionLifecycleDto {
@@ -19,7 +20,10 @@ class SessionLifecycleDto {
 @ApiTags('⚙️ Session Settings')
 @UseGuards(PoliciesGuard)
 export class SessionLifecycleController {
-  constructor(private settingsService: SettingsService) {}
+  constructor(
+    private settingsService: SettingsService,
+    private manager: SessionManagerPlus,
+  ) {}
 
   @Get()
   @CheckPolicies(CanServer(Action.Read))
@@ -44,6 +48,7 @@ export class SessionLifecycleController {
     @Body() body: Partial<SessionLifecycleDto>,
   ): Promise<SessionLifecycleDto> {
     await this.settingsService.saveSessionLifecycleSettings(body);
+    await this.manager.reloadSessionLifecycleSettings();
     return this.settingsService.getSessionLifecycleSettings();
   }
 }

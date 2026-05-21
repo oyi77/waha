@@ -80,6 +80,16 @@ class BulkCheckRequest {
   @IsArray()
   @IsString({ each: true })
   phones: string[];
+
+  @ApiProperty({
+    description: 'Delay in ms between checks (default: 300)',
+    required: false,
+    example: 300,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  delayMs?: number;
 }
 
 class BulkSendResult {
@@ -132,14 +142,26 @@ export class BulkController {
 
     const sent: string[] = [];
     const failed: { chatId: string; error: string }[] = [];
+    let consecutiveFailures = 0;
 
     for (let i = 0; i < recipients.length; i++) {
       const { chatId, text } = recipients[i];
       try {
         await whatsapp.sendText({ chatId, text, session });
         sent.push(chatId);
+        consecutiveFailures = 0;
       } catch (err: any) {
         failed.push({ chatId, error: err?.message ?? String(err) });
+        consecutiveFailures++;
+        if (consecutiveFailures >= 3) {
+          for (let j = i + 1; j < recipients.length; j++) {
+            failed.push({
+              chatId: recipients[j].chatId,
+              error: 'Aborted: 3 consecutive failures — session may have died',
+            });
+          }
+          break;
+        }
       }
       if (delayMs > 0 && i < recipients.length - 1) {
         await sleep(delayMs);
@@ -162,14 +184,15 @@ export class BulkController {
       'to check which ones have an active WhatsApp account.',
   })
   async bulkCheck(@Body() request: BulkCheckRequest): Promise<BulkCheckResult> {
-    const { session, phones } = request;
+    const { session, phones, delayMs = 300 } = request;
     const whatsapp = await this.manager.getWorkingSession(session);
 
     const onWhatsApp: string[] = [];
     const notOnWhatsApp: string[] = [];
     const failed: { phone: string; error: string }[] = [];
 
-    for (const phone of phones) {
+    for (let i = 0; i < phones.length; i++) {
+      const phone = phones[i];
       try {
         const result = await whatsapp.checkNumberStatus({ phone, session });
         if (result?.numberExists) {
@@ -179,6 +202,9 @@ export class BulkController {
         }
       } catch (err: any) {
         failed.push({ phone, error: err?.message ?? String(err) });
+      }
+      if (delayMs > 0 && i < phones.length - 1) {
+        await sleep(delayMs);
       }
     }
 

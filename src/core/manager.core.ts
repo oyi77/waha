@@ -178,9 +178,13 @@ export class SessionManagerCore extends SessionManager implements OnModuleInit {
   async start(name: string): Promise<SessionDTO> {
     this.onlyDefault(name);
     if (this.session) {
-      throw new UnprocessableEntityException(
-        `Session '${this.DEFAULT}' is already started.`,
-      );
+      if ((this.session as WhatsappSession).status !== WAHASessionStatus.WORKING) {
+        await this.stop(name, true);
+      } else {
+        throw new UnprocessableEntityException(
+          `Session '${this.DEFAULT}' is already started.`,
+        );
+      }
     }
     this.log.info({ session: name }, `Starting session...`);
     const logger = this.log.logger.child({ session: name });
@@ -242,9 +246,6 @@ export class SessionManagerCore extends SessionManager implements OnModuleInit {
       // Apps
       await this.appsService.afterSessionStart(session, this.store);
     }
-
-    // Apps
-    await this.appsService.afterSessionStart(session, this.store);
 
     return {
       name: session.name,

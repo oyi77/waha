@@ -16,9 +16,12 @@ const MIGRATIONS = [
     status TEXT NOT NULL DEFAULT 'pending',
     createdAt INTEGER NOT NULL,
     sentAt INTEGER,
-    error TEXT
+    error TEXT,
+    retryCount INTEGER NOT NULL DEFAULT 0
   )`,
 ];
+
+const MAX_RETRIES = 3;
 
 export interface ScheduledMessage {
   id: string;
@@ -44,6 +47,7 @@ interface ScheduledRow {
   createdAt: number;
   sentAt: number | null;
   error: string | null;
+  retryCount: number;
 }
 
 function rowToMessage(row: ScheduledRow): ScheduledMessage {
@@ -155,15 +159,30 @@ export class ScheduleService implements OnModuleDestroy {
           });
           this.logger.log(`Scheduled message ${msg.id} sent`);
         } catch (err: any) {
-          await knex(TABLE)
-            .where({ id: msg.id })
-            .update({
-              status: 'failed',
-              error: err?.message ?? String(err),
-            });
-          this.logger.error(
-            `Scheduled message ${msg.id} failed: ${err?.message}`,
-          );
+          const retries = (row.retryCount ?? 0) + 1;
+          if (retries < MAX_RETRIES) {
+            await knex(TABLE)
+              .where({ id: msg.id })
+              .update({
+                status: 'pending',
+                retryCount: retries,
+                error: err?.message ?? String(err),
+              });
+            this.logger.warn(
+              `Scheduled message ${msg.id} retry ${retries}/${MAX_RETRIES}: ${err?.message}`,
+            );
+          } else {
+            await knex(TABLE)
+              .where({ id: msg.id })
+              .update({
+                status: 'failed',
+                retryCount: retries,
+                error: err?.message ?? String(err),
+              });
+            this.logger.error(
+              `Scheduled message ${msg.id} failed after ${MAX_RETRIES} retries: ${err?.message}`,
+            );
+          }
         }
       }
     } finally {
@@ -198,6 +217,7 @@ export class ScheduleService implements OnModuleDestroy {
       createdAt: now,
       sentAt: null,
       error: null,
+      retryCount: 0,
     };
 
     await knex(TABLE).insert(row);

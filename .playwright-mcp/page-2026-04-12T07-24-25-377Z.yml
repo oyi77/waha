@@ -1,0 +1,93 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "WAHA" [ref=e3] [cursor=pointer]:
+      - /url: /dashboard
+      - img [ref=e4]
+      - text: WAHA
+    - generic [ref=e7]: /
+    - generic [ref=e8]: Settings
+    - link "← Plus Hub" [ref=e9] [cursor=pointer]:
+      - /url: /dashboard/plus/
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - heading "Dashboard Settings" [level=1] [ref=e12]
+      - paragraph [ref=e13]: Manage your dashboard login credentials
+    - generic [ref=e14]:
+      - generic [ref=e15]: Current Credentials
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]: Username
+          - generic [ref=e19]: admin
+        - generic [ref=e20]:
+          - generic [ref=e21]: Source
+          - generic [ref=e22]: Environment
+    - generic [ref=e23]:
+      - generic [ref=e24]: Update Credentials
+      - paragraph [ref=e25]: Change your dashboard username and password. Updated credentials are saved to the database and persist across restarts.
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: Current Password
+          - textbox "Current Password" [ref=e29]:
+            - /placeholder: Enter your current password
+        - separator [ref=e30]
+        - generic [ref=e31]:
+          - generic [ref=e32]: New Username
+          - textbox "New Username" [ref=e33]:
+            - /placeholder: Enter new username
+            - text: newadmin
+        - generic [ref=e34]:
+          - generic [ref=e35]: New Password
+          - textbox "New Password" [ref=e36]:
+            - /placeholder: Enter new password
+          - generic [ref=e37]: Minimum 6 characters
+        - generic [ref=e38]:
+          - generic [ref=e39]: Confirm New Password
+          - textbox "Confirm New Password" [ref=e40]:
+            - /placeholder: Re-enter new password
+        - button "Save Credentials" [ref=e41] [cursor=pointer]
+      - generic [ref=e45]: Credentials updated successfully! Your new login will persist across restarts.
+  - generic [ref=e42]:
+    - generic:
+      - generic: WAHA Plus Features
+      - link "📱 Sessions Manager":
+        - /url: /dashboard/plus/sessions.html
+        - generic: 📱
+        - generic: Sessions Manager
+      - link "⏰ Message Scheduling":
+        - /url: /dashboard/plus/schedule.html
+        - generic: ⏰
+        - generic: Message Scheduling
+      - link "📋 Templates":
+        - /url: /dashboard/plus/templates.html
+        - generic: 📋
+        - generic: Templates
+      - link "🤖 Auto-Reply Rules":
+        - /url: /dashboard/plus/autoreply.html
+        - generic: 🤖
+        - generic: Auto-Reply Rules
+      - link "📊 Analytics New":
+        - /url: /dashboard/plus/analytics.html
+        - generic: 📊
+        - generic: Analytics
+        - generic: New
+      - link "🔑 API Keys New":
+        - /url: /dashboard/plus/apikeys.html
+        - generic: 🔑
+        - generic: API Keys
+        - generic: New
+      - link "📇 Contact Import New":
+        - /url: /dashboard/plus/contacts.html
+        - generic: 📇
+        - generic: Contact Import
+        - generic: New
+      - link "🔌 MCP Server":
+        - /url: /dashboard/plus/mcp.html
+        - generic: 🔌
+        - generic: MCP Server
+      - link "⚙️ Engine Guide":
+        - /url: /dashboard/plus/engines.html
+        - generic: ⚙️
+        - generic: Engine Guide
+    - button "Open WAHA Plus navigation" [ref=e43] [cursor=pointer]:
+      - emphasis [ref=e44]: ✦
+      - text: Plus

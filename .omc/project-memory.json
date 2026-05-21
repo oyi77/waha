@@ -1,0 +1,483 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775914042704,
+  "projectRoot": "/home/openclaw/projects/waha",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      },
+      {
+        "name": "C/C++",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "Makefile"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "@nestjs/core",
+        "version": "11.0.0",
+        "category": "backend"
+      },
+      {
+        "name": "jest",
+        "version": "29.7.0",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "yarn",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "yarn build",
+    "testCommand": "yarn test",
+    "lintCommand": "yarn lint",
+    "devCommand": "yarn start",
+    "scripts": {
+      "prebuild": "rimraf dist",
+      "build": "nest build",
+      "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+      "start": "nest start",
+      "start:dev": "nest start --watch",
+      "start:debug": "nest start --debug --watch",
+      "start:prod": "node dist/main",
+      "start:prod-exit": "node dist/main",
+      "lint": "oxlint --deny-warnings",
+      "lint-fix": "oxlint --fix --deny-warnings",
+      "test": "yarn test:unit",
+      "test:watch": "jest --selectProjects unit --watch",
+      "test:cov": "jest --selectProjects unit --coverage",
+      "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --selectProjects unit --runInBand",
+      "test:unit": "jest --selectProjects unit",
+      "test:e2e": "jest --selectProjects e2e",
+      "test:e8e": "yarn test:e2e",
+      "test:all": "yarn test:unit && yarn test:e8e",
+      "gows:proto:fetch": "node scripts/gows-proto.js fetch",
+      "gows:proto:build": "node scripts/gows-proto.js build",
+      "gows:proto": "yarn gows:proto:fetch && yarn gows:proto:build"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase/PascalCase",
+    "importStyle": "ES modules",
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "examples",
+      "scripts",
+      "src",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "core",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "docker-compose": {
+      "path": "docker-compose",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775914042686,
+      "keyFiles": [
+        "docker-compose.workers.yaml"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 10,
+      "lastAccessed": 1775914042687,
+      "keyFiles": [
+        "dev.likeapro.jpg",
+        "dev.likeapro.opus",
+        "example.pdf",
+        "excel.xlsx",
+        "video.avi"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 4,
+      "lastAccessed": 1775914042692,
+      "keyFiles": [
+        "_find_unused_i18n.js",
+        "gows-proto.js",
+        "init-waha.js",
+        "update-from-upstream.sh"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 5,
+      "lastAccessed": 1775914042694,
+      "keyFiles": [
+        "config.service.ts",
+        "config.ts",
+        "helpers.ts",
+        "main.ts",
+        "version.ts"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 0,
+      "lastAccessed": 1775914042698,
+      "keyFiles": []
+    },
+    "docker-compose/test": {
+      "path": "docker-compose/test",
+      "purpose": "Test files",
+      "fileCount": 1,
+      "lastAccessed": 1775914042698,
+      "keyFiles": [
+        "docker-compose.yaml"
+      ]
+    },
+    "src/__tests__": {
+      "path": "src/__tests__",
+      "purpose": "Test files",
+      "fileCount": 0,
+      "lastAccessed": 1775914042701,
+      "keyFiles": []
+    },
+    "src/api": {
+      "path": "src/api",
+      "purpose": "API routes",
+      "fileCount": 25,
+      "lastAccessed": 1775914042701,
+      "keyFiles": [
+        "apikeys.controller.ts",
+        "auth.controller.ts",
+        "calls.controller.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src",
+      "accessCount": 64,
+      "lastAccessed": 1779377204576,
+      "type": "directory"
+    },
+    {
+      "path": "src/plus/manager.plus.ts",
+      "accessCount": 60,
+      "lastAccessed": 1779377302557,
+      "type": "file"
+    },
+    {
+      "path": "src/core/engines/noweb/session.noweb.core.ts",
+      "accessCount": 25,
+      "lastAccessed": 1779376957179,
+      "type": "file"
+    },
+    {
+      "path": "src/core/abc/manager.abc.ts",
+      "accessCount": 23,
+      "lastAccessed": 1779377246436,
+      "type": "directory"
+    },
+    {
+      "path": "src/plus/bulk.controller.ts",
+      "accessCount": 22,
+      "lastAccessed": 1779377307874,
+      "type": "file"
+    },
+    {
+      "path": "src/plus/dashboard.login.controller.ts",
+      "accessCount": 21,
+      "lastAccessed": 1779361033453,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 20,
+      "lastAccessed": 1779367536874,
+      "type": "directory"
+    },
+    {
+      "path": "src/plus/app.module.plus.ts",
+      "accessCount": 19,
+      "lastAccessed": 1775992459932,
+      "type": "file"
+    },
+    {
+      "path": "src/core/engines/webjs/session.webjs.core.ts",
+      "accessCount": 18,
+      "lastAccessed": 1779369286917,
+      "type": "file"
+    },
+    {
+      "path": "src/dashboard/index.html",
+      "accessCount": 16,
+      "lastAccessed": 1775920188997,
+      "type": "file"
+    },
+    {
+      "path": "src/core/auth/dashboardCookieAuth.ts",
+      "accessCount": 16,
+      "lastAccessed": 1775992738549,
+      "type": "file"
+    },
+    {
+      "path": "src/core/abc/session.abc.ts",
+      "accessCount": 15,
+      "lastAccessed": 1779376833547,
+      "type": "directory"
+    },
+    {
+      "path": "src/plus/broadcast.controller.ts",
+      "accessCount": 14,
+      "lastAccessed": 1779376824836,
+      "type": "file"
+    },
+    {
+      "path": "src/core/storage/sqlite3/Sqlite3ApiKeyRepository.ts",
+      "accessCount": 11,
+      "lastAccessed": 1775926659750,
+      "type": "file"
+    },
+    {
+      "path": "src/core/manager.core.ts",
+      "accessCount": 11,
+      "lastAccessed": 1779377319820,
+      "type": "file"
+    },
+    {
+      "path": "src/api/chatting.controller.ts",
+      "accessCount": 10,
+      "lastAccessed": 1779376806664,
+      "type": "file"
+    },
+    {
+      "path": "src/core/app.module.core.ts",
+      "accessCount": 8,
+      "lastAccessed": 1775992465612,
+      "type": "file"
+    },
+    {
+      "path": "src/api/channels.controller.ts",
+      "accessCount": 7,
+      "lastAccessed": 1779377221397,
+      "type": "file"
+    },
+    {
+      "path": "src/nestjs/pipes/SessionPipe.ts",
+      "accessCount": 5,
+      "lastAccessed": 1779376834926,
+      "type": "file"
+    },
+    {
+      "path": "src/api/groups.controller.ts",
+      "accessCount": 5,
+      "lastAccessed": 1779376872590,
+      "type": "file"
+    },
+    {
+      "path": "src/core/storage/IApiKeyRepository.ts",
+      "accessCount": 4,
+      "lastAccessed": 1775918588736,
+      "type": "file"
+    },
+    {
+      "path": "WAHA_PLUS_FORK.md",
+      "accessCount": 4,
+      "lastAccessed": 1775923344540,
+      "type": "file"
+    },
+    {
+      "path": "Dockerfile",
+      "accessCount": 4,
+      "lastAccessed": 1779362883658,
+      "type": "file"
+    },
+    {
+      "path": "src/api/contacts.controller.ts",
+      "accessCount": 4,
+      "lastAccessed": 1779376750710,
+      "type": "file"
+    },
+    {
+      "path": "src/api/presence.controller.ts",
+      "accessCount": 4,
+      "lastAccessed": 1779376871798,
+      "type": "file"
+    },
+    {
+      "path": "src/nestjs/params/SessionApiParam.ts",
+      "accessCount": 4,
+      "lastAccessed": 1779376896498,
+      "type": "file"
+    },
+    {
+      "path": "src/nestjs/BufferResponseInterceptor.ts",
+      "accessCount": 3,
+      "lastAccessed": 1775915881597,
+      "type": "file"
+    },
+    {
+      "path": "src/api/auth.controller.ts",
+      "accessCount": 3,
+      "lastAccessed": 1775926481350,
+      "type": "file"
+    },
+    {
+      "path": "src/plus/dashboard.plus.controller.ts",
+      "accessCount": 3,
+      "lastAccessed": 1775927454865,
+      "type": "file"
+    },
+    {
+      "path": "AGENTS.md",
+      "accessCount": 3,
+      "lastAccessed": 1775986239258,
+      "type": "file"
+    },
+    {
+      "path": "src/api/calls.controller.ts",
+      "accessCount": 3,
+      "lastAccessed": 1779376750169,
+      "type": "file"
+    },
+    {
+      "path": "src/api/status.controller.ts",
+      "accessCount": 3,
+      "lastAccessed": 1779376750654,
+      "type": "file"
+    },
+    {
+      "path": "src/api/chats.controller.ts",
+      "accessCount": 3,
+      "lastAccessed": 1779376750764,
+      "type": "file"
+    },
+    {
+      "path": "src/api/events.controller.ts",
+      "accessCount": 3,
+      "lastAccessed": 1779376871768,
+      "type": "file"
+    },
+    {
+      "path": "src/core/QR.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775915564480,
+      "type": "file"
+    },
+    {
+      "path": "src/api/contacts.session.controller.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775926401494,
+      "type": "file"
+    },
+    {
+      "path": "src/core/auth/config.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775986256011,
+      "type": "file"
+    },
+    {
+      "path": "src/core/auth/api-key-auth.middleware.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775986256765,
+      "type": "file"
+    },
+    {
+      "path": "src/core/config/DashboardConfigServiceCore.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775986257122,
+      "type": "file"
+    },
+    {
+      "path": "src/core/storage/LocalStoreCore.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775986462254,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 2,
+      "lastAccessed": 1779362883590,
+      "type": "file"
+    },
+    {
+      "path": "src/api/profile.controller.ts",
+      "accessCount": 2,
+      "lastAccessed": 1779376749966,
+      "type": "file"
+    },
+    {
+      "path": "src/api/labels.controller.ts",
+      "accessCount": 2,
+      "lastAccessed": 1779376754297,
+      "type": "file"
+    },
+    {
+      "path": "src/structures/webhooks.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775914134213,
+      "type": "file"
+    },
+    {
+      "path": "src/structures/chatting.dto.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775914135027,
+      "type": "file"
+    },
+    {
+      "path": "src/structures/status.dto.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775914167147,
+      "type": "file"
+    },
+    {
+      "path": "src/config.service.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775914539826,
+      "type": "directory"
+    },
+    {
+      "path": "src/structures/auth.dto.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775915268167,
+      "type": "file"
+    },
+    {
+      "path": "docker-compose.yaml",
+      "accessCount": 1,
+      "lastAccessed": 1775916749291,
+      "type": "file"
+    },
+    {
+      "path": "src/__tests__/e2e/auth.test.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775916780529,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

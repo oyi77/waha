@@ -77,6 +77,12 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
   protected readonly engineBootstrap: EngineBootstrap;
 
   private localSessionConfigRepo: LocalSessionConfigRepository;
+  private _cachedLifecycleSettings: {
+    autoRestartOnBoot: boolean;
+    autoRestartFailed: boolean;
+    restartAllSessions: boolean;
+    autoStartDelay: number;
+  } | null = null;
 
   constructor(
     config: WhatsappConfigService,
@@ -223,12 +229,14 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
       try {
         const dbSettings =
           await this.settingsService.getSessionLifecycleSettings();
-        return {
+        const settings = {
           autoRestartOnBoot: dbSettings.autoRestartOnBoot,
           autoRestartFailed: dbSettings.autoRestartFailed,
           restartAllSessions: dbSettings.restartAllSessions,
           autoStartDelay: dbSettings.autoStartDelay,
         };
+        this._cachedLifecycleSettings = settings;
+        return settings;
       } catch (error) {
         this.log.warn(
           { error },
@@ -238,6 +246,18 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit {
     }
 
     return defaults;
+  }
+
+  async reloadSessionLifecycleSettings() {
+    this._cachedLifecycleSettings = null;
+    return this.loadSessionLifecycleSettings();
+  }
+
+  async getSessionLifecycleSettings() {
+    if (this._cachedLifecycleSettings) {
+      return this._cachedLifecycleSettings;
+    }
+    return this.loadSessionLifecycleSettings();
   }
 
   // ─── Core API ─────────────────────────────────────────────────────────────────

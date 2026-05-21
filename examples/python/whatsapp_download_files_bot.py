@@ -25,6 +25,7 @@ def send_message(chat_id, text):
     )
     response.raise_for_status()
 
+
 def send_seen(chat_id, message_id, participant):
     response = requests.post(
         "http://localhost:3000/api/sendSeen",
@@ -36,6 +37,7 @@ def send_seen(chat_id, message_id, participant):
         },
     )
     response.raise_for_status()
+
 
 @app.route("/")
 def whatsapp_echo():
@@ -61,9 +63,9 @@ def whatsapp_webhook():
     # Number in format 791111111@c.us
     chat_id = payload["from"]
     # Message ID - false_11111111111@c.us_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    message_id = payload['id']
+    message_id = payload["id"]
     # For groups - who sent the message
-    participant = payload.get('participant')
+    participant = payload.get("participant")
     # IMPORTANT - Always send seen before sending new message
     send_seen(chat_id=chat_id, message_id=message_id, participant=participant)
 

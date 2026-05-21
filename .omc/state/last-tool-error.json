@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"yarn build 2>&1\",\"timeout\":120000,\"description\":\"Run yarn build to verify all changes compile\"}",
+  "error": "Exit code 1",
+  "timestamp": "2026-05-21T15:30:39.382Z",
+  "retry_count": 1
+}

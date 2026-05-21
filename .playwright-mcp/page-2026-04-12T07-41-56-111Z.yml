@@ -1,0 +1,66 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "WAHA" [ref=e3] [cursor=pointer]:
+      - /url: /dashboard
+      - img [ref=e4]
+      - text: WAHA
+    - generic [ref=e7]: /
+    - generic [ref=e8]: Analytics
+    - link "← Plus Hub" [ref=e9] [cursor=pointer]:
+      - /url: /dashboard/plus/
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - heading "Analytics Dashboard" [level=1] [ref=e13]
+        - paragraph [ref=e14]: Message volume, trends, and recent activity
+      - button "↻ Refresh" [ref=e15] [cursor=pointer]
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - text: Session
+        - combobox [ref=e18] [cursor=pointer]:
+          - option "All Sessions" [selected]
+      - generic [ref=e19]:
+        - text: Range
+        - generic [ref=e20]:
+          - button "7d" [ref=e21] [cursor=pointer]
+          - button "30d" [ref=e22] [cursor=pointer]
+          - button "90d" [ref=e23] [cursor=pointer]
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]: Total Sent
+        - generic [ref=e27]: —
+        - generic [ref=e28]: messages sent
+      - generic [ref=e29]:
+        - generic [ref=e30]: Total Received
+        - generic [ref=e31]: —
+        - generic [ref=e32]: messages received
+      - generic [ref=e33]:
+        - generic [ref=e34]: Active Sessions
+        - generic [ref=e35]: —
+        - generic [ref=e36]: connected sessions
+      - generic [ref=e37]:
+        - generic [ref=e38]: Today
+        - generic [ref=e39]: —
+        - generic [ref=e40]: messages today
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Daily Message Volume
+        - generic [ref=e44]:
+          - generic [ref=e45]: Sent
+          - generic [ref=e47]: Received
+      - generic [ref=e50]:
+        - generic [ref=e51]: 📊
+        - generic [ref=e52]: Analytics tracking starts when you send your first message
+        - generic [ref=e53]:
+          - text: Once the
+          - code [ref=e54]: /api/analytics/daily
+          - text: endpoint is available, your sent and received message trends will appear here as a line chart.
+    - generic [ref=e55]:
+      - generic [ref=e57]: Recent Messages
+      - generic [ref=e59]:
+        - generic [ref=e60]: 💬
+        - generic [ref=e61]: Message log not available yet
+        - generic [ref=e62]:
+          - text: When the
+          - code [ref=e63]: /api/messages/log
+          - text: endpoint is active, recent message activity will appear here with direction, session, chat, and content preview.
