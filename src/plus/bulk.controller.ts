@@ -128,7 +128,7 @@ export class BulkController {
 
   @Post('/bulk/send')
   @HttpCode(200)
-  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
+  @CheckPolicies(CanSession(Action.Send, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Send personalized messages to multiple recipients',
@@ -175,7 +175,7 @@ export class BulkController {
 
   @Post('/bulk/check')
   @HttpCode(200)
-  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
+  @CheckPolicies(CanSession(Action.Send, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Check which phone numbers are registered on WhatsApp',

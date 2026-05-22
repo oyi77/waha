@@ -130,7 +130,7 @@ export class BroadcastController {
 
   @Post('/broadcast/text')
   @HttpCode(200)
-  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
+  @CheckPolicies(CanSession(Action.Send, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Broadcast text to multiple recipients',
@@ -167,7 +167,7 @@ export class BroadcastController {
 
   @Post('/broadcast/image')
   @HttpCode(200)
-  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
+  @CheckPolicies(CanSession(Action.Send, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Broadcast an image to multiple recipients',
@@ -201,7 +201,7 @@ export class BroadcastController {
 
   @Post('/broadcast/file')
   @HttpCode(200)
-  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
+  @CheckPolicies(CanSession(Action.Send, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Broadcast a file to multiple recipients',
@@ -235,7 +235,7 @@ export class BroadcastController {
 
   @Post('/broadcast/video')
   @HttpCode(200)
-  @CheckPolicies(CanSession(Action.Use, FromBody('session')))
+  @CheckPolicies(CanSession(Action.Send, FromBody('session')))
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Broadcast a video to multiple recipients',

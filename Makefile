@@ -35,7 +35,7 @@ for-swagger:
 	export WHATSAPP_SWAGGER_CONFIG_ADVANCED=true && export WHATSAPP_SWAGGER_PASSWORD=666 && yarn start
 
 up-noweb:
-	yarn up @adiwajshing/baileys@github:devlikeapro/Baileys#fork-master-2026-02-11
+	yarn up @adiwajshing/baileys@github:devlikeapro/Baileys#fork-master-2026-04-28
 
 up-noweb-libsignal:
 	yarn up libsignal@github:devlikeapro/libsignal-node#fork-master
@@ -45,6 +45,7 @@ up-webjs:
 
 up-wpp:
 	yarn up @wppconnect-team/wppconnect
+	yarn up @wppconnect/wa-js
 
 up-rust-bridge:
 	yarn up -R whatsapp-rust-bridge
@@ -57,8 +58,11 @@ proto-gows:
 
 gows:
 	cd ../gows && \
-	export PATH=${HOME}/go/bin:${PATH} && \
+	(export PATH=${HOME}/go/bin:${PATH} || echo failed) && \
 	make all
+
+up-dashboard:
+	node scripts/up-dashboard.js
 
 copy-dashboard:
 	cd ../waha-hub/ui && \

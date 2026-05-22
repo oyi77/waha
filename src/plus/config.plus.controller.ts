@@ -129,7 +129,7 @@ export class ConfigPlusController {
   }
 
   @Post('config/storage')
-  @CheckPolicies(CanServer(Action.Use))
+  @CheckPolicies(CanServer(Action.Manage))
   @ApiOperation({
     summary: 'Update media storage configuration',
     description:
@@ -184,7 +184,7 @@ export class ConfigPlusController {
   }
 
   @Post('config/auth')
-  @CheckPolicies(CanServer(Action.Use))
+  @CheckPolicies(CanServer(Action.Manage))
   @ApiOperation({
     summary: 'Update dashboard username and password',
     description:
@@ -222,7 +222,7 @@ export class ConfigPlusController {
   // ── Upstream sync ─────────────────────────────────────────────────────────
 
   @Post('upstream/sync')
-  @CheckPolicies(CanServer(Action.Use))
+  @CheckPolicies(CanServer(Action.Manage))
   @ApiOperation({
     summary: 'Sync from upstream devlikeapro/waha',
     description:

@@ -33,7 +33,7 @@ export class SessionLifecycleController {
   }
 
   @Put()
-  @CheckPolicies(CanServer(Action.Use))
+  @CheckPolicies(CanServer(Action.Manage))
   @ApiOperation({
     summary: 'Update session lifecycle settings',
     description:

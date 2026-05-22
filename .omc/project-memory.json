@@ -180,8 +180,8 @@
   "hotPaths": [
     {
       "path": "src",
-      "accessCount": 64,
-      "lastAccessed": 1779377204576,
+      "accessCount": 70,
+      "lastAccessed": 1779423855286,
       "type": "directory"
     },
     {
@@ -269,15 +269,15 @@
       "type": "file"
     },
     {
-      "path": "src/api/chatting.controller.ts",
-      "accessCount": 10,
-      "lastAccessed": 1779376806664,
+      "path": "src/core/app.module.core.ts",
+      "accessCount": 11,
+      "lastAccessed": 1779423762080,
       "type": "file"
     },
     {
-      "path": "src/core/app.module.core.ts",
-      "accessCount": 8,
-      "lastAccessed": 1775992465612,
+      "path": "src/api/chatting.controller.ts",
+      "accessCount": 10,
+      "lastAccessed": 1779376806664,
       "type": "file"
     },
     {

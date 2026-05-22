@@ -1,5 +1,5 @@
-import { Browsers, WABrowserDescription } from '@adiwajshing/baileys';
 import makeWASocket, {
+  Browsers,
   Chat,
   Contact,
   decryptPollVote,
@@ -19,6 +19,7 @@ import makeWASocket, {
   PresenceData,
   proto,
   SocketConfig,
+  WABrowserDescription,
   WAMessageContent,
   WAMessageKey,
   WAMessageUpdate,
@@ -71,7 +72,7 @@ import { pairs } from '@waha/utils/pairs';
 import { ExtractMessageKeysForRead } from '@waha/core/utils/convertors';
 import { parseMessageIdSerialized } from '@waha/core/utils/ids';
 import { isJidNewsletter, toCusFormat, toJID } from '@waha/core/utils/jids';
-import { DistinctAck } from '@waha/core/utils/reactive';
+import { DistinctAck, DistinctMessages } from '@waha/core/utils/reactive';
 import { flipObject, splitAt } from '@waha/helpers';
 import { PairingCodeResponse } from '@waha/structures/auth.dto';
 import { CallData } from '@waha/structures/calls.dto';
@@ -187,13 +188,13 @@ import * as NodeCache from 'node-cache';
 import {
   filter,
   fromEvent,
+  groupBy,
   identity,
   merge,
   mergeAll,
   mergeMap,
   Observable,
   partition,
-  groupBy,
   share,
   tap,
 } from 'rxjs';
@@ -2242,10 +2243,14 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     );
     messagesFromMe$ = messagesFromMe$.pipe(
       mergeMap((msg) => this.processIncomingMessage(msg, true)),
+      filter(Boolean),
+      DistinctMessages(),
       share(), // share it so we don't process twice in message.any
     );
     messagesFromOthers$ = messagesFromOthers$.pipe(
       mergeMap((msg) => this.processIncomingMessage(msg, true)),
+      filter(Boolean),
+      DistinctMessages(),
       share(), // share it so we don't process twice in message.any
     );
     const messagesFromAll$ = merge(messagesFromMe$, messagesFromOthers$);
@@ -2646,9 +2651,24 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       return null;
     }
     // Media
-    if (downloadMedia) {
-      const media = await this.downloadMediaSafe(message);
-      wamessage.media = media;
+    if (downloadMedia && wamessage.hasMedia) {
+      wamessage.media = await this.downloadMediaSafe(message);
+    }
+
+    if (downloadMedia && wamessage.replyTo?.hasMedia) {
+      const mediaContent = extractMediaContent(wamessage.replyTo._data);
+      const m = {
+        message: wamessage.replyTo._data,
+        key: {
+          id:
+            wamessage.replyTo.id ||
+            mediaContent.fileSha256 ||
+            mediaContent.fileEncSha256 ||
+            mediaContent.mediaKeyTimestamp,
+          remoteJid: message.key.remoteJid,
+        },
+      };
+      wamessage.replyTo.media = await this.downloadMediaSafe(m);
     }
     return wamessage;
   }
@@ -2708,10 +2728,15 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       return null;
     }
     const body = extractBody(quotedMessage);
+    const mediaContent = extractMediaContent(quotedMessage);
     return {
       id: contextInfo.stanzaId,
       participant: toCusFormat(contextInfo.participant),
       body: body,
+      // Media
+      hasMedia: Boolean(mediaContent),
+      media: null,
+      // Data
       _data: quotedMessage,
     };
   }
@@ -2914,6 +2939,7 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   }
 
   protected async getMessageOptions(request: {
+    id?: string;
     chatId: string;
     reply_to?: string;
   }) {
@@ -2925,7 +2951,8 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       quoted = await this.store.loadMessage(jid, key.id);
     }
     const chat = await this.store.getChat(jid);
-    const messageId = this.generateMessageID();
+    const messageId = request.id ? request.id : this.generateMessageID();
+    this.saveSentMessageId(messageId);
     return {
       quoted: quoted,
       ephemeralExpiration: chat?.ephemeralExpiration,
@@ -3012,9 +3039,12 @@ export class NOWEBEngineMediaProcessor implements IMediaEngineProcessor<any> {
       content.url = null;
     }
 
-    return (await downloadMediaMessage(
+    // Use 'stream' mode instead of 'buffer' to fix 0-byte audio files
+    // 'buffer' mode silently returns empty buffer for audio/voice messages
+    // See: https://github.com/devlikeapro/waha/issues/1996
+    const stream = await downloadMediaMessage(
       message,
-      'buffer',
+      'stream',
       {},
       {
         logger: this.logger,
@@ -3023,7 +3053,12 @@ export class NOWEBEngineMediaProcessor implements IMediaEngineProcessor<any> {
     ).finally(() => {
       // Set url back in case we removed it
       content.url = url;
-    })) as Buffer;
+    });
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
   }
 
   getFilename(message: any): string | null {
