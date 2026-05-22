@@ -12,7 +12,7 @@ import { SessionManager } from '@waha/core/abc/manager.abc';
 import { WAHAHealthCheckService } from '@waha/core/abc/WAHAHealthCheckService';
 import { ApiKeyAuthMiddleware } from '@waha/core/auth/api-key-auth.middleware';
 import { ApiKeyAuthFactory } from '@waha/core/auth/ApiKeyAuthFactory';
-import { ApiKeyService } from '@waha/core/auth/ApiKeyService';
+import { ApiKeyService } from '@waha/core/services/ApiKeyService';
 import { ApiKeyStrategy } from '@waha/core/auth/apiKey.strategy';
 import { IApiKeyAuth } from '@waha/core/auth/auth';
 import { CaslAbilityFactory } from '@waha/core/auth/casl.ability';

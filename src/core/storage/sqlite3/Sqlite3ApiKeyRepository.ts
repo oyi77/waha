@@ -10,7 +10,7 @@ interface ApiKeyRow {
   key: string;
   isActive: number; // SQLite stores booleans as integers
   session: string | null;
-  data: string; // JSON: { isAdmin: boolean, rules: ... }
+  data: string; // JSON: { isAdmin: boolean, actions: ... }
 }
 
 function rowToApiKey(row: ApiKeyRow): ApiKey {
@@ -21,7 +21,7 @@ function rowToApiKey(row: ApiKeyRow): ApiKey {
     isActive: row.isActive === 1,
     session: row.session ?? null,
     isAdmin: data.isAdmin ?? false,
-    rules: data.rules ?? null,
+    actions: data.actions ?? null,
   };
 }
 
@@ -31,7 +31,7 @@ function apiKeyToRow(key: ApiKey): ApiKeyRow {
     key: key.key,
     isActive: key.isActive ? 1 : 0,
     session: key.session ?? null,
-    data: JSON.stringify({ isAdmin: key.isAdmin, rules: key.rules }),
+    data: JSON.stringify({ isAdmin: key.isAdmin, actions: key.actions }),
   };
 }
 
@@ -61,7 +61,6 @@ export class Sqlite3ApiKeyRepository implements IApiKeyRepository {
       .insert(row)
       .onConflict('id')
       .merge();
-    // Return the persisted row rather than echoing the input.
     const persisted = await this.getById(key.id);
     return persisted ?? key;
   }
