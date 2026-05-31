@@ -44,6 +44,12 @@ import { SettingsService } from './settings.service';
 import { SettingsController } from './settings.controller';
 import { SessionLifecycleController } from './session_lifecycle.controller';
 import { SessionHealthController } from './session_health.controller';
+import { SessionStreamController } from './session-stream.controller';
+import { SessionHeartbeatService } from './session-heartbeat.service';
+import { SessionFailoverService } from './session-failover.service';
+import { SessionTransactionService } from './session-transaction.service';
+import { SessionGarbageCollectorService } from './session-gc.service';
+import { SessionDistributedStateService } from './session-distributed-state.service';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -83,6 +89,11 @@ const PROVIDERS = [
   MessageLogService,
   AnalyticsService,
   SettingsService,
+  SessionHeartbeatService,
+  SessionFailoverService,
+  SessionTransactionService,
+  SessionGarbageCollectorService,
+  SessionDistributedStateService,
 ];
 
 @Module({
@@ -105,6 +116,7 @@ const PROVIDERS = [
     SessionLifecycleController,
     SessionHealthController,
     SessionRecoveryController,
+    SessionStreamController,
     WahaMcpController,
     EngineSwitchController,
   ],
