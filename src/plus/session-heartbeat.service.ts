@@ -9,6 +9,7 @@ export class SessionHeartbeatService implements OnModuleInit, OnModuleDestroy {
   private readonly HEARTBEAT_INTERVAL_MS = 5_000;
   private readonly MAX_RESTART_ATTEMPTS = 3;
   private restartAttempts: Map<string, number> = new Map();
+  private sessionsNeedingQR: Set<string> = new Set();
 
   constructor(
     private readonly manager: SessionManager,
@@ -47,9 +48,16 @@ export class SessionHeartbeatService implements OnModuleInit, OnModuleDestroy {
       const sessions = await this.manager.getSessions(false);
 
       for (const session of sessions) {
-        if (session.status === WAHASessionStatus.FAILED) {
+        if (session.status === WAHASessionStatus.SCAN_QR_CODE) {
+          this.sessionsNeedingQR.add(session.name);
+          this.restartAttempts.delete(session.name);
+        } else if (session.status === WAHASessionStatus.FAILED) {
+          if (this.sessionsNeedingQR.has(session.name)) {
+            continue;
+          }
           await this.handleFailedSession(session.name);
         } else if (session.status === WAHASessionStatus.WORKING) {
+          this.sessionsNeedingQR.delete(session.name);
           this.restartAttempts.delete(session.name);
         }
       }
