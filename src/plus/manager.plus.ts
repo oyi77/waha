@@ -786,12 +786,26 @@ export class SessionManagerPlus extends SessionManager implements OnModuleInit, 
       );
       return;
     }
-    if (!this.sessionWorkerRepository) return;
 
     try {
-      const allWorkers = await this.sessionWorkerRepository.getAll();
-      const allSessions = allWorkers.map((w) => w.id);
-      if (!allSessions.length) return;
+      // Get sessions from database (worker tracking)
+      const dbSessions: string[] = [];
+      if (this.sessionWorkerRepository) {
+        const allWorkers = await this.sessionWorkerRepository.getAll();
+        dbSessions.push(...allWorkers.map((w) => w.id));
+      }
+
+      // Also get sessions from disk configs (loaded by loadPersistedSessionConfigs)
+      const diskSessions = Array.from(this.sessionConfigMap.keys());
+
+      // Merge and deduplicate
+      const allSessions = [...new Set([...dbSessions, ...diskSessions])];
+
+      if (!allSessions.length) {
+        this.log.info('No sessions found to auto-restart.');
+        return;
+      }
+
       this.log.info(
         `Auto-restarting ${allSessions.length} session(s) across all workers (restartAllSessions=true)...`,
       );
