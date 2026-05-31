@@ -30,6 +30,7 @@ import { ScheduleController } from './schedule.controller';
 import { ScheduleService } from './schedule.service';
 import { TemplatesController } from './templates.controller';
 import { TemplatesService } from './templates.service';
+import { SessionRecoveryController } from './session_recovery.controller';
 import { AutoReplyController } from './autoreply.controller';
 import { AutoReplyService } from './autoreply.service';
 import { WahaMcpController } from './mcp/waha.mcp.controller';
@@ -103,6 +104,7 @@ const PROVIDERS = [
     SettingsController,
     SessionLifecycleController,
     SessionHealthController,
+    SessionRecoveryController,
     WahaMcpController,
     EngineSwitchController,
   ],

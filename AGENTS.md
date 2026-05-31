@@ -129,3 +129,73 @@ Each tool file mirrors an API domain (e.g. `chats.tools.ts` → chats endpoints)
 - GOWS: `../gows` and `../whatsmeow`
 - WPP: `../wa-js`, `../wppconnect`, `../wppconnect-server`
 - ChatWoot: `../chatwoot`
+
+## Fork Maintenance & Upstream Merge Strategy
+
+This repo (`oyi77/waha-core`) is a fork of `devlikeapro/waha` with Plus-tier
+additions and custom improvements.
+
+### What We Own (never in upstream)
+
+- `src/plus/` — all Plus additions: auto-restart, health endpoint, schedule
+  retry, bulk improvements, flow-gap fixes, SessionManagerPlus
+- `waha-dashboard` — separate repo (`oyi77/waha-dashboard`), ref pinned in
+  `waha.config.json`
+- `scripts/backup-sessions.sh` — daily volume backup
+- Volume data — `waha_sessions` and `waha_media` named Docker volumes
+
+### Upstream Merge Process
+
+```bash
+# 1. Fetch upstream
+git remote add upstream https://github.com/devlikeapro/waha.git
+git fetch upstream core
+
+# 2. Merge
+git merge upstream/core
+
+# 3. Resolve conflicts — strategy:
+#    - src/plus/* → always keep OURS (upstream never touches these)
+#    - sessions.controller.ts → keep our status-aware restart, accept upstream features
+#    - apps.controller.ts → keep our exists() fix
+#    - waha.config.json → keep our dashboard repo ref
+#    - AGENTS.md → merge both (keep our fork docs, accept upstream coding rules)
+#    - yarn.lock → accept upstream, then yarn install to regenerate
+
+# 4. Common upstream renames to watch for:
+#    - Action.Use → Action.Manage (server) / Action.Send (session ops)
+#    - ApiKey.rules → ApiKey.actions
+#    - ApiKeyService import path: @waha/core/services/ not @waha/core/auth/
+
+# 5. Build + test
+yarn build   # must pass (ignore src/dashboard Nuxt composables errors)
+docker build -t waha-plus:latest .
+
+# 6. Deploy
+docker stop waha-test && docker rm waha-test
+docker run -d --name waha-test --restart unless-stopped \
+  -p 127.0.0.1:3010:3000 \
+  -v waha_sessions:/app/.sessions \
+  -v waha_media:/app/.media \
+  --env-file .env waha-plus:latest
+```
+
+### Conflict Resolution Rules
+
+| File | Strategy | Reason |
+|------|----------|--------|
+| `src/plus/*` | OURS | Our additions, upstream has no equivalent |
+| `src/api/sessions.controller.ts` | OUR logic + UPSTREAM features | Status-aware restart is critical |
+| `src/apps/app_sdk/api/apps.controller.ts` | OURS | `exists()` fix for restart |
+| `src/core/app.module.core.ts` | MERGE | Both sides add providers |
+| `waha.config.json` | OURS | Our dashboard repo ref |
+| `AGENTS.md` | MERGE | Our fork docs + upstream coding rules |
+| `package.json` | UPSTREAM | Engine dependency versions |
+| `yarn.lock` | UPSTREAM then regenerate | Lock file must match package.json |
+
+### Version Management
+
+- Current version displayed in Settings page
+- Engine switch available per session (Workers page + Plus engines page)
+- Engine component versions in `waha.config.json` (GOWS ref)
+- Upstream releases: `https://github.com/devlikeapro/waha/releases`
