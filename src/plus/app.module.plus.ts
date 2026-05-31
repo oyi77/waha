@@ -50,6 +50,14 @@ import { SessionFailoverService } from './session-failover.service';
 import { SessionTransactionService } from './session-transaction.service';
 import { SessionGarbageCollectorService } from './session-gc.service';
 import { SessionDistributedStateService } from './session-distributed-state.service';
+import { SessionAlertingService } from './session-alerting.service';
+import { SessionDashboardController } from './session-dashboard.controller';
+import { SessionBackupService } from './session-backup.service';
+import { WebhookReliabilityService } from './webhook-reliability.service';
+import { SessionGroupsService } from './session-groups.service';
+import { SessionAnalyticsService } from './session-analytics.service';
+import { SessionCloningService } from './session-cloning.service';
+import { SessionPlusController } from './session-plus.controller';
 
 function getMediaStorageModule() {
   const storage = process.env.WAHA_MEDIA_STORAGE ?? 'LOCAL';
@@ -94,6 +102,12 @@ const PROVIDERS = [
   SessionTransactionService,
   SessionGarbageCollectorService,
   SessionDistributedStateService,
+  SessionAlertingService,
+  SessionBackupService,
+  WebhookReliabilityService,
+  SessionGroupsService,
+  SessionAnalyticsService,
+  SessionCloningService,
 ];
 
 @Module({
@@ -117,6 +131,8 @@ const PROVIDERS = [
     SessionHealthController,
     SessionRecoveryController,
     SessionStreamController,
+    SessionDashboardController,
+    SessionPlusController,
     WahaMcpController,
     EngineSwitchController,
   ],
