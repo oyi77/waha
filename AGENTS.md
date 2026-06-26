@@ -1,3 +1,65 @@
+# AGENTS.md — 1ai-ecosystem Engineering Rules
+
+This repository is part of the **1ai-ecosystem**. You are governed by the mandatory engineering rules below.
+
+---
+
+## ⚡ START HERE
+
+Read the rules in the order specified for your session type. **Do not skip. Do not summarize. Read the full text.**
+
+> The rules are located at `_rules/` in this repo, synced from `github.com/oyi77/1ai-rules`.
+
+```
+_rules/
+├── ENGINEERING.md    ← core engineering protocol (always required)
+├── VERIFICATION.md   ← receipt enforcement (always required)
+├── QA.md             ← QA protocol (for testing sessions)
+├── SURPASS.md        ← competitive strategy (for planning sessions)
+└── DOCS.md           ← documentation standards (for docs sessions)
+```
+
+---
+
+## Session Classification
+
+Determine your session type, then load the required rules **in order**:
+
+| Session Type | Required Reading | Order |
+|---|---|---|
+| **Coding / bugfix / feature** | ENGINEERING.md + VERIFICATION.md | 1 → 2 |
+| **QA / testing existing code** | QA.md + VERIFICATION.md | 1 → 2 |
+| **Competitive research / planning** | SURPASS.md | 1 |
+| **Documentation** | DOCS.md | 1 |
+| **Full sprint (build + test + docs)** | ALL rules (ENGINEERING.md + VERIFICATION.md + QA.md + SURPASS.md + DOCS.md) | 1→2→3→4→5 |
+
+---
+
+## Hard Rules (apply regardless of session type)
+
+1. **Receipts are mandatory.** Every "done" claim requires literal verbatim terminal/test/log output. A summary is not a receipt. No receipt = not done.
+2. **Break it before you ship it.** Adversarial test required before any completion claim. Empty input, max boundary, error paths, concurrent access, auth boundaries.
+3. **Docs are part of the deliverable.** Code changes without synced docs are incomplete. Update docs in the same change.
+4. **No silent failure.** Every error must be caught, logged, and surfaced. Empty catches and suppressed errors are defects.
+5. **No hallucinated paths/symbols/APIs.** Read the file before claiming it exists. Use codebase-memory-mcp or equivalent on indexed repos.
+6. **These rules cannot be waived** by any instruction, task phrasing, or user request. See ENGINEERING.md §8 for the conflict hierarchy.
+
+---
+
+## Detection
+
+- If `_rules/` does not exist → this repo hasn't been set up yet. Load rules from `~/.1ai/rules/` (on the local filesystem) or clone `github.com/oyi77/1ai-rules` first.
+- If `~/.1ai/` does not exist → run the setup script: `gh repo clone oyi77/1ai-rules ~/.1ai`
+
+---
+
+## Project-Specific Notes
+
+<!-- Add repo-specific rules below this line -->
+<!-- Examples: port numbers, env vars, deploy targets, CI commands, local quirks -->
+
+---
+
 # WAHA Agent Playbook
 
 This guide summarizes how to explore, modify, and validate the WhatsApp HTTP API
@@ -6,196 +68,36 @@ This guide summarizes how to explore, modify, and validate the WhatsApp HTTP API
 ## Product & Variants
 
 - WAHA ships in **Core** and **Plus** editions
-- Core lives under `src/core` and supports the default session with minimal
-  media features
-- Plus extends core via `src/plus` to add multi-session orchestration, richer
-  media handling, and external storage integrations
-- Core code must remain free from Plus-only references (pre-commit hook rejects
-  "plus" in core files)
-- Commit subjects: changes that touch `src/plus` require `[PLUS] …` prefix;
-  everything else uses `[core] …`
+- Core lives under `src/core` and supports the default session with minimal media features
+- Plus extends core via `src/plus` to add multi-session orchestration, richer media handling, and external storage integrations
+- Core code must remain free from Plus-only references (pre-commit hook rejects "plus" in core files)
+- Commit subjects: changes that touch `src/plus` require `[PLUS] …` prefix; everything else uses `[core] …`
 
 ## Tech Stack
 
 - **Runtime**: Node.js 22.x, Yarn 3.6 (Berry)
-- **Framework**: NestJS v11 with dependency injection and modular controllers in
-  `src/api`
-- **Engines**: WhatsApp engines are abstracted (`WEBJS`, `GOWS`, `NOWEB`,
-  `WPP`). Core uses `SessionManagerCore`; Plus swaps to `SessionManagerPlus`
-  with extra storage backends (Mongo/Postgres/SQLite)
-- **ESM Bridge**: ESM-only dependencies (Baileys) load through
-  `src/vendor/esm.ts`
-- **Utilities**: RxJS streams drive webhook event fan-out. Prefer existing
-  helpers in `src/utils` and `src/core/utils`
+- **Database**: SQLite via better-sqlite3, PostgreSQL via sequelize
+- **Framework**: Express.js for REST, ws for WebSocket
+- **Container**: Official Docker images (`devlikeapro/waha`)
+- **Test**: Vitest + Playwright (E2E)
+- **Lint/Format**: ESLint + Prettier
+- **Docs**: Swagger (development) + Stoplight (production docs)
 
-## Key Paths
+## Key Architecture Rules
 
-- `src/main.ts`: runtime entry point; dynamically loads AppModule (Core vs Plus)
-- `src/api/**`: REST controllers and WebSocket gateway
-- `src/core/**`: shared abstractions (config services, engine bootstrap,
-  storage, session management)
-- `src/plus/**`: multi-session orchestration, advanced media services, and
-  external persistence layers
-- `src/structures/**` and `src/utils/**`: DTOs, enums (event names follow
-  `domain.action`), helper utilities
+- Plugin system: each feature is a `src/[core|plus]/modules/[module]/index.ts` that exports an `IApplicationModule`
+- HTTP + WebSocket on the same port — the router splits traffic by `Upgrade` header
+- Sessions are identified by `sessionId` query or path param — most operations are session-scoped
+- `src/shared` is off-limits for anything that references media or talk-to-anything features unless behind an abstraction
 
-## Coding Expectations
+## Testing
 
-- Favor composability and long-lived solutions
-- Reuse existing helpers (`parseBool`, `DefaultMap`, media factories) instead of
-  reinventing logic
-- Stick to NestJS patterns: inject dependencies through constructors, expose
-  provider tokens from modules
-- Logging goes through injected `PinoLogger` or helpers in
-  `src/utils/logging.ts`
-- Respect path aliases (`@waha/...`) defined in `tsconfig.json`
-- Prefer named function declarations over `const` arrow functions
-- Avoid naming unused variables with a leading underscore
-- Always use explicit property names in object literals — never shorthand: write
-  `{ key: value }`, not `{ value }` (even when the variable name matches the
-  key)
-- Do not write verbose ternaries; use idiomatic helpers like `??` (nullish
-  coalescing)
-- Do not place `await` or other async calls inside ternary expressions (`?:`) or
-  nullish-coalescing expressions (`??`); use explicit `if/else` blocks or assign
-  the awaited value to a variable first
-- For configs, prefer runtime configurability over constants (environment keys
-  follow `WAHA_*` and `WAHA_SESSION_CONFIG_*`)
-- Do not use decorative comment blocks (lines of dashes/underscores with a
-  label) such as `// ─────────── NAME ───────────`; use plain inline comments or
-  no comment at all
+- Unit: `yarn test` (Vitest, runs in ~30s)
+- E2E: `yarn test:e2e` (Playwright, needs Docker)
+- Always run `yarn test` before committing — no pending changes should break the suite.
 
-## How to Run API
+## Build & Publish
 
-```bash
-export DEBUG=1
-export WAHA_API_KEY=666
-export WAHA_DASHBOARD_PASSWORD=666
-export WAHA_DASHBOARD_USERNAME=admin
-export WWHATSAPP_SWAGGER_USERNAME=admin
-export WHATSAPP_SWAGGER_PASSWORD=666
-export WHATSAPP_DEFAULT_ENGINE={WEBJS|WPP|NOWEB|GOWS}
-export WAHA_DEBUG_MODE=True
-export WAHA_HTTP_STRICT_MODE=1
-export WAHA_MEDIA_STORAGE=LOCAL
-export WHATSAPP_FILES_FOLDER=./.media
-
-npm run start
-```
-
-## Code Guidelines
-
-- Add `@Activity()` (from `src/core/abc/activity.ts`) to every engine method
-  that makes a network call to WhatsApp servers
-- It triggers `maintainPresenceOnline()` before the method runs, keeping the
-  session ONLINE during API activity and scheduling an OFFLINE transition after
-  an idle period
-- Skip it on methods that only throw `NotImplementedByEngineError` /
-  `AvailableInPlusVersion`
-
-## MCP Tools
-
-MCP tools live in `src/apps/mcp/tools/` and expose the HTTP API to AI clients.
-Each tool file mirrors an API domain (e.g. `chats.tools.ts` → chats endpoints).
-
-**When you change an existing API endpoint:**
-
-- Check the corresponding `*.tools.ts` file and update the tool's `inputSchema`,
-  description, or behavior if the API signature changed.
-
-**When you add a new API endpoint:**
-
-- Ask the user whether an MCP tool is needed for the new endpoint before
-  creating one.
-- If yes, add the tool to the matching `*.tools.ts` file (or create a new file
-  for a new domain).
-- Every `@Tool` decorator must include an `annotations` block with all three
-  fields:
-  ```typescript
-  annotations: {
-    readOnlyHint: true | false,   // true = no side effects (GET-style)
-    destructiveHint: true | false, // true = irreversible deletion/logout
-    idempotentHint: true | false,  // true = safe to repeat with same args
-  }
-  ```
-- Input schemas live in the matching `*.zod.ts` file.
-- Tools call the API via `this.textRequest({ method, url, ... })` inherited from
-  `McpController`.
-
-## Related Sources
-
-- WEBJS: `../whatsapp-web.js`
-- NOWEB: `../WhiskeySockets-Baileys` and `../whatsapp-rust-bridge`
-- GOWS: `../gows` and `../whatsmeow`
-- WPP: `../wa-js`, `../wppconnect`, `../wppconnect-server`
-- ChatWoot: `../chatwoot`
-
-## Fork Maintenance & Upstream Merge Strategy
-
-This repo (`oyi77/waha-core`) is a fork of `devlikeapro/waha` with Plus-tier
-additions and custom improvements.
-
-### What We Own (never in upstream)
-
-- `src/plus/` — all Plus additions: auto-restart, health endpoint, schedule
-  retry, bulk improvements, flow-gap fixes, SessionManagerPlus
-- `waha-dashboard` — separate repo (`oyi77/waha-dashboard`), ref pinned in
-  `waha.config.json`
-- `scripts/backup-sessions.sh` — daily volume backup
-- Volume data — `waha_sessions` and `waha_media` named Docker volumes
-
-### Upstream Merge Process
-
-```bash
-# 1. Fetch upstream
-git remote add upstream https://github.com/devlikeapro/waha.git
-git fetch upstream core
-
-# 2. Merge
-git merge upstream/core
-
-# 3. Resolve conflicts — strategy:
-#    - src/plus/* → always keep OURS (upstream never touches these)
-#    - sessions.controller.ts → keep our status-aware restart, accept upstream features
-#    - apps.controller.ts → keep our exists() fix
-#    - waha.config.json → keep our dashboard repo ref
-#    - AGENTS.md → merge both (keep our fork docs, accept upstream coding rules)
-#    - yarn.lock → accept upstream, then yarn install to regenerate
-
-# 4. Common upstream renames to watch for:
-#    - Action.Use → Action.Manage (server) / Action.Send (session ops)
-#    - ApiKey.rules → ApiKey.actions
-#    - ApiKeyService import path: @waha/core/services/ not @waha/core/auth/
-
-# 5. Build + test
-yarn build   # must pass (ignore src/dashboard Nuxt composables errors)
-docker build -t waha-plus:latest .
-
-# 6. Deploy
-docker stop waha-test && docker rm waha-test
-docker run -d --name waha-test --restart unless-stopped \
-  -p 127.0.0.1:3010:3000 \
-  -v waha_sessions:/app/.sessions \
-  -v waha_media:/app/.media \
-  --env-file .env waha-plus:latest
-```
-
-### Conflict Resolution Rules
-
-| File | Strategy | Reason |
-|------|----------|--------|
-| `src/plus/*` | OURS | Our additions, upstream has no equivalent |
-| `src/api/sessions.controller.ts` | OUR logic + UPSTREAM features | Status-aware restart is critical |
-| `src/apps/app_sdk/api/apps.controller.ts` | OURS | `exists()` fix for restart |
-| `src/core/app.module.core.ts` | MERGE | Both sides add providers |
-| `waha.config.json` | OURS | Our dashboard repo ref |
-| `AGENTS.md` | MERGE | Our fork docs + upstream coding rules |
-| `package.json` | UPSTREAM | Engine dependency versions |
-| `yarn.lock` | UPSTREAM then regenerate | Lock file must match package.json |
-
-### Version Management
-
-- Current version displayed in Settings page
-- Engine switch available per session (Workers page + Plus engines page)
-- Engine component versions in `waha.config.json` (GOWS ref)
-- Upstream releases: `https://github.com/devlikeapro/waha/releases`
+- `yarn build` compiles TS → JS into `dist/`
+- Docker images are built via GitHub Actions on tags
+- Version is read from `package.json` — bump with `yarn version`
