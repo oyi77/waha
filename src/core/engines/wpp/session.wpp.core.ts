@@ -1431,7 +1431,7 @@ export class WhatsappSessionWPPCore extends WhatsappSession {
   public promoteParticipantsToAdmin(
     id: string,
     request: ParticipantsRequest,
-  ): Promise<boolean> {
+  ) {
     const participants = request.participants.map((participant) =>
       this.ensureSuffix(participant.id),
     );
