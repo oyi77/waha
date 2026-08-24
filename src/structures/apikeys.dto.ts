@@ -8,7 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { SessionActions } from '@waha/core/auth/casl.types';
-import { SessionName } from '@waha/structures/sessions.dto';
+import { SessionName } from '@waha/nestjs/validation/SessionName';
 
 export class SessionActionsDTO implements SessionActions {
   @ApiProperty({
@@ -74,6 +74,12 @@ export class ApiKeyDTO {
 
   @ApiProperty({ type: SessionActionsDTO, required: false, nullable: true })
   actions: SessionActions | null;
+}
+
+export class ScopedApiKeyRequest {
+  @ApiProperty({ example: 'default' })
+  @SessionName()
+  session: string;
 }
 
 export class ApiKeyRequest {

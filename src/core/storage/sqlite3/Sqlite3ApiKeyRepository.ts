@@ -1,100 +1,67 @@
-import { ApiKey, IApiKeyRepository } from '@waha/core/storage/IApiKeyRepository';
+import { Sqlite3SchemaValidation } from '@waha/core/engines/noweb/store/sqlite3/Sqlite3SchemaValidation';
+import {
+  IApiKeyRepository,
+  ApiKey,
+} from '@waha/core/storage/IApiKeyRepository';
 import { LocalStore } from '@waha/core/storage/LocalStore';
-import { SQLApiKeyMigrations } from '@waha/core/storage/sql/schemas';
-import Knex from 'knex';
+import {
+  SQLApiKeyMigrations,
+  SQLApiKeySchema,
+} from '@waha/core/storage/sql/schemas';
+import { Sqlite3KVRepository } from '@waha/core/storage/sqlite3/Sqlite3KVRepository';
 
-const TABLE = 'api_key';
+export class Sqlite3ApiKeyRepository
+  extends Sqlite3KVRepository<ApiKey>
+  implements IApiKeyRepository
+{
+  get schema() {
+    return SQLApiKeySchema;
+  }
 
-interface ApiKeyRow {
-  id: string;
-  key: string;
-  isActive: number; // SQLite stores booleans as integers
-  session: string | null;
-  data: string; // JSON: { isAdmin: boolean, actions: ... }
-}
+  get migrations() {
+    return SQLApiKeyMigrations;
+  }
 
-function rowToApiKey(row: ApiKeyRow): ApiKey {
-  const data = JSON.parse(row.data || '{}');
-  return {
-    id: row.id,
-    key: row.key,
-    isActive: row.isActive === 1,
-    session: row.session ?? null,
-    isAdmin: data.isAdmin ?? false,
-    actions: data.actions ?? null,
-  };
-}
-
-function apiKeyToRow(key: ApiKey): ApiKeyRow {
-  return {
-    id: key.id,
-    key: key.key,
-    isActive: key.isActive ? 1 : 0,
-    session: key.session ?? null,
-    data: JSON.stringify({ isAdmin: key.isAdmin, actions: key.actions }),
-  };
-}
-
-export class Sqlite3ApiKeyRepository implements IApiKeyRepository {
-  private knex: Knex.Knex;
+  get metadata() {
+    return new Map<string, (entity: ApiKey) => any>([
+      ['key', (entity) => entity.key],
+      ['isActive', (entity) => (entity.isActive ? 1 : 0)],
+      ['session', (entity) => entity.session],
+    ]);
+  }
 
   constructor(store: LocalStore) {
-    this.knex = store.getWAHADatabase();
+    const knex = store.getWAHADatabase();
+    super(knex);
   }
 
-  async init(): Promise<void> {
-    await this.knex.transaction(async (trx) => {
-      for (const sql of SQLApiKeyMigrations) {
-        await trx.raw(sql);
-      }
-    });
-  }
-
-  async list(): Promise<ApiKey[]> {
-    const rows: ApiKeyRow[] = await this.knex(TABLE).select('*');
-    return rows.map(rowToApiKey);
+  list(): Promise<ApiKey[]> {
+    return this.getAll();
   }
 
   async upsert(key: ApiKey): Promise<ApiKey> {
-    const row = apiKeyToRow(key);
-    await this.knex(TABLE)
-      .insert(row)
-      .onConflict('id')
-      .merge();
-    const persisted = await this.getById(key.id);
-    return persisted ?? key;
+    await this.upsertOne(key);
+    return key;
   }
 
-  async getActiveByKey(key: string): Promise<ApiKey | null> {
-    const row: ApiKeyRow | undefined = await this.knex(TABLE)
-      .where({ key, isActive: 1 })
-      .first();
-    return row ? rowToApiKey(row) : null;
+  getActiveByKey(key: string): Promise<ApiKey | null> {
+    return this.getBy({ key: key, isActive: 1 });
   }
 
-  async getById(id: string): Promise<ApiKey | null> {
-    const row: ApiKeyRow | undefined = await this.knex(TABLE)
-      .where({ id })
-      .first();
-    return row ? rowToApiKey(row) : null;
+  getById(id: string): Promise<ApiKey | null> {
+    return super.getById(id);
   }
 
-  async getByKey(key: string): Promise<ApiKey | null> {
-    const row: ApiKeyRow | undefined = await this.knex(TABLE)
-      .where({ key })
-      .first();
-    return row ? rowToApiKey(row) : null;
+  getByKey(key: string): Promise<ApiKey | null> {
+    return this.getBy({ key: key });
   }
 
-  async deleteById(id: string): Promise<void> {
-    await this.knex(TABLE).where({ id }).delete();
+  async deleteBySession(session: string): Promise<void> {
+    await this.deleteBy({ session: session });
   }
 
-  async deleteBySession(session: string | null): Promise<void> {
-    if (session === null) {
-      await this.knex(TABLE).whereNull('session').delete();
-    } else {
-      await this.knex(TABLE).where({ session }).delete();
-    }
+  protected async validateSchema() {
+    const validation = new Sqlite3SchemaValidation(this.schema, this.knex);
+    await validation.validate();
   }
 }

@@ -1,8 +1,8 @@
-import { applyDecorators } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
 import { App } from '@waha/apps/app_sdk/dto/app.dto';
 import { BooleanString } from '@waha/nestjs/validation/BooleanString';
 import { IsDynamicObject } from '@waha/nestjs/validation/IsDynamicObject';
+import { SessionName } from '@waha/nestjs/validation/SessionName';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -10,8 +10,6 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  Matches,
-  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -153,6 +151,30 @@ export class GowsStorageConfig {
   @IsBoolean()
   @IsOptional()
   labels?: boolean | null;
+
+  @ApiProperty({
+    description:
+      'Store contacts locally. Set to false to disable; omit or null to keep enabled. ' +
+      'When disabled: contacts API returns no data, no contact names in chats, ' +
+      'no PushName/BusinessName events, and sending status to all contacts does not work.',
+    required: false,
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  contacts?: boolean | null;
+
+  @ApiProperty({
+    description:
+      'Store message secrets locally. Set to false to disable; omit or null to keep enabled. ' +
+      'When disabled: incoming poll votes, event responses and bot messages can not be decrypted, ' +
+      'and sending own poll votes does not work.',
+    required: false,
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  messageSecrets?: boolean | null;
 }
 
 export class GowsConfig {
@@ -297,6 +319,8 @@ export class SessionConfig {
         groups: true,
         chats: true,
         labels: true,
+        contacts: true,
+        messageSecrets: true,
       },
     },
   })
@@ -327,6 +351,121 @@ export class SessionDTO {
   config?: SessionConfig;
 }
 
+/**
+ * Enforcement types as listed in the WhatsApp Web app (WAWebUserPrefsTypes.ReachoutTimelockEnforcementType).
+ * WhatsApp may introduce new values at any time - treat it as an open set.
+ */
+export enum ReachoutTimelockEnforcementType {
+  // No restriction
+  DEFAULT = 'DEFAULT',
+  BIZ_QUALITY = 'BIZ_QUALITY',
+  BIZ_COMMERCE_VIOLATION_ADULT = 'BIZ_COMMERCE_VIOLATION_ADULT',
+  BIZ_COMMERCE_VIOLATION_ALCOHOL = 'BIZ_COMMERCE_VIOLATION_ALCOHOL',
+  BIZ_COMMERCE_VIOLATION_ANIMALS = 'BIZ_COMMERCE_VIOLATION_ANIMALS',
+  BIZ_COMMERCE_VIOLATION_BODY_PARTS_FLUIDS = 'BIZ_COMMERCE_VIOLATION_BODY_PARTS_FLUIDS',
+  BIZ_COMMERCE_VIOLATION_DATING = 'BIZ_COMMERCE_VIOLATION_DATING',
+  BIZ_COMMERCE_VIOLATION_DIGITAL_SERVICES_PRODUCTS = 'BIZ_COMMERCE_VIOLATION_DIGITAL_SERVICES_PRODUCTS',
+  BIZ_COMMERCE_VIOLATION_DRUGS = 'BIZ_COMMERCE_VIOLATION_DRUGS',
+  BIZ_COMMERCE_VIOLATION_DRUGS_ONLY_OTC = 'BIZ_COMMERCE_VIOLATION_DRUGS_ONLY_OTC',
+  BIZ_COMMERCE_VIOLATION_GAMBLING = 'BIZ_COMMERCE_VIOLATION_GAMBLING',
+  BIZ_COMMERCE_VIOLATION_HEALTHCARE = 'BIZ_COMMERCE_VIOLATION_HEALTHCARE',
+  BIZ_COMMERCE_VIOLATION_REAL_FAKE_CURRENCY = 'BIZ_COMMERCE_VIOLATION_REAL_FAKE_CURRENCY',
+  BIZ_COMMERCE_VIOLATION_SUPPLEMENTS = 'BIZ_COMMERCE_VIOLATION_SUPPLEMENTS',
+  BIZ_COMMERCE_VIOLATION_TOBACCO = 'BIZ_COMMERCE_VIOLATION_TOBACCO',
+  BIZ_COMMERCE_VIOLATION_VIOLENT_CONTENT = 'BIZ_COMMERCE_VIOLATION_VIOLENT_CONTENT',
+  BIZ_COMMERCE_VIOLATION_WEAPONS = 'BIZ_COMMERCE_VIOLATION_WEAPONS',
+  WEB_COMPANION_ONLY = 'WEB_COMPANION_ONLY',
+  RESTRICT_ALL_COMPANIONS = 'RESTRICT_ALL_COMPANIONS',
+}
+
+export class ReachoutTimelockData {
+  @ApiProperty({
+    example: ReachoutTimelockEnforcementType.RESTRICT_ALL_COMPANIONS,
+    enum: ReachoutTimelockEnforcementType,
+    description:
+      'Raw WhatsApp enforcement type. Informational only - it does not change what is blocked. ' +
+      'WhatsApp may introduce new values, so treat it as an open set.',
+  })
+  enforcementType: ReachoutTimelockEnforcementType;
+
+  @ApiProperty({
+    example: true,
+  })
+  isActive: boolean;
+
+  @ApiProperty({
+    example: 1784477333,
+    nullable: true,
+    description: 'Unix timestamp (seconds) when the enforcement ends.',
+  })
+  timeEnforcementEnds: number | null;
+}
+
+/**
+ * Capping status for the per-cycle new-chat message quota.
+ * WhatsApp may introduce new values at any time - treat it as an open set.
+ */
+export enum MessageCappingStatus {
+  NONE = 'NONE',
+  FIRST_WARNING = 'FIRST_WARNING',
+  SECOND_WARNING = 'SECOND_WARNING',
+  CAPPED = 'CAPPED',
+}
+
+export class MessageCappingData {
+  @ApiProperty({
+    example: MessageCappingStatus.FIRST_WARNING,
+    enum: MessageCappingStatus,
+    description:
+      'How close the account is to its new-chat quota. ' +
+      'CAPPED means new chats are blocked. WhatsApp may introduce new values, ' +
+      'so treat it as an open set.',
+  })
+  cappingStatus: MessageCappingStatus;
+
+  @ApiProperty({
+    example: 1000,
+    description:
+      'New-chat messages allowed in the current cycle. -1 when the account ' +
+      'has no cap.',
+  })
+  totalQuota: number;
+
+  @ApiProperty({
+    example: 640,
+    description: 'New-chat messages already used in the current cycle.',
+  })
+  usedQuota: number;
+
+  @ApiProperty({
+    example: 1782874800,
+    nullable: true,
+    description: 'Unix timestamp (seconds) when the current cycle started.',
+  })
+  cycleStart: number | null;
+
+  @ApiProperty({
+    example: 1785553199,
+    nullable: true,
+    description: 'Unix timestamp (seconds) when the current cycle ends.',
+  })
+  cycleEnd: number | null;
+
+  @ApiProperty({
+    example: 'NOT_ELIGIBLE',
+    nullable: true,
+    description: 'Meta Verified status. Informational.',
+  })
+  mvStatus: string | null;
+
+  @ApiProperty({
+    example: 'NOT_ELIGIBLE',
+    nullable: true,
+    description: 'One-time engagement status. Informational.',
+  })
+  oteStatus: string | null;
+}
+
 export class MeInfo {
   @ChatIdProperty()
   id: string;
@@ -343,6 +482,24 @@ export class MeInfo {
   jid?: string;
 
   pushName: string;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description:
+      'WhatsApp reachout timelock (account restriction) info. ' +
+      'Null if no enforcement has been seen for the account.',
+  })
+  reachoutTimelock?: ReachoutTimelockData | null;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description:
+      'WhatsApp new-chat message capping (per-cycle quota) info. ' +
+      'Null until the capping state has been fetched for the account.',
+  })
+  messageCapping?: MessageCappingData | null;
 }
 
 export class SessionInfo extends SessionDTO {
@@ -368,20 +525,7 @@ export class SessionDetailedInfo extends SessionInfo {
   engine?: any;
 }
 
-// Affect almost all Databases - Sqlite, MongoDB, Postgres.
-const DB_NAME_LIMIT = 64;
-const DB_NAME_MAX_PREFIX_LEN = 'waha_noweb'.length;
-
-export function SessionName() {
-  return applyDecorators(
-    IsString(),
-    MaxLength(DB_NAME_LIMIT - DB_NAME_MAX_PREFIX_LEN),
-    Matches(/^[a-zA-Z0-9_-]*$/, {
-      message:
-        'Session name can only contain alphanumeric characters, hyphens, and underscores (a-z, A-Z, 0-9, -, _) or be empty',
-    }),
-  );
-}
+export { SessionName };
 
 export class SessionCreateRequest {
   @ApiProperty({

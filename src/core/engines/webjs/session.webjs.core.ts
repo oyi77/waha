@@ -1,6 +1,8 @@
 import { UnprocessableEntityException } from '@nestjs/common';
+import { parseMessageCapping } from '@waha/core/abc/capping';
 import {
   getChannelInviteLink,
+  getPublicUrlFromDirectPath,
   WhatsappSession,
 } from '@waha/core/abc/session.abc';
 import {
@@ -18,21 +20,23 @@ import {
   ToGroupV2ParticipantsEvent,
   ToGroupV2UpdateEvent,
 } from '@waha/core/engines/webjs/groups.webjs';
-import { LocalAuth } from '@waha/core/engines/webjs/LocalAuth';
 import {
   TagChatstateToPresence,
   TagPresenceToPresence,
 } from '@waha/core/engines/webjs/presence';
-import { WebjsClientCore } from '@waha/core/engines/webjs/WebjsClientCore';
+import {
+  WebjsChannelMessage,
+  WebjsClientCore,
+} from '@waha/core/engines/webjs/WebjsClientCore';
 import {
   CallErrorEvent,
   PAGE_CALL_ERROR_EVENT,
 } from '@waha/core/engines/webjs/WPage';
-import {
-  AvailableInPlusVersion,
-  NotImplementedByEngineError,
-} from '@waha/core/exceptions';
+import { WAMimeType } from '@waha/core/media/WAMimeType';
+import { detectMimetype } from '@waha/utils/files';
+import { NotImplementedByEngineError } from '@waha/core/exceptions';
 import { IMediaEngineProcessor } from '@waha/core/media/IMediaEngineProcessor';
+import { LottieMediaProcessorWrapper } from '@waha/core/media/LottieMediaProcessorWrapper';
 import { QR } from '@waha/core/QR';
 import { StatusToAck } from '@waha/core/utils/acks';
 import {
@@ -46,6 +50,7 @@ import {
   Channel,
   ChannelListResult,
   ChannelMessage,
+  ChannelPublicInfo,
   ChannelRole,
   ChannelSearchByText,
   ChannelSearchByView,
@@ -74,11 +79,12 @@ import {
   MessageImageRequest,
   MessageLocationRequest,
   MessagePollRequest,
+  MessagePollVoteRequest,
   MessageReactionRequest,
   MessageReplyRequest,
   MessageStarRequest,
   MessageTextRequest,
-  MessageVoiceRequest,
+  MessageVideoRequest,
   SendSeenRequest,
   WANumberExistResult,
 } from '@waha/structures/chatting.dto';
@@ -103,6 +109,7 @@ import {
   GroupParticipant,
   GroupSortField,
   ParticipantsRequest,
+  SettingsMemberAddMode,
   SettingsSecurityChangeInfo,
 } from '@waha/structures/groups.dto';
 import { Label, LabelDTO, LabelID } from '@waha/structures/labels.dto';
@@ -120,8 +127,21 @@ import {
   WAMessageReaction,
 } from '@waha/structures/responses.dto';
 import { BrowserTraceQuery } from '@waha/structures/server.debug.dto';
-import { MeInfo } from '@waha/structures/sessions.dto';
-import { DeleteStatusRequest, TextStatus } from '@waha/structures/status.dto';
+import {
+  MeInfo,
+  MessageCappingData,
+  ReachoutTimelockData,
+  ReachoutTimelockEnforcementType,
+} from '@waha/structures/sessions.dto';
+import { EnsureSeconds } from '@waha/utils/timehelper';
+import {
+  BROADCAST_ID,
+  DeleteStatusRequest,
+  ImageStatus,
+  TextStatus,
+  VideoStatus,
+  VoiceStatus,
+} from '@waha/structures/status.dto';
 import {
   EnginePayload,
   PollVote as WAHAPollVote,
@@ -131,12 +151,13 @@ import {
   WAMessageRevokedBody,
 } from '@waha/structures/webhooks.dto';
 import { PaginatorInMemory } from '@waha/utils/Paginator';
-import { sleep, waitUntil } from '@waha/utils/promiseTimeout';
+import { promiseTimeout, sleep, waitUntil } from '@waha/utils/promiseTimeout';
 import { SingleDelayedJobRunner } from '@waha/utils/SingleDelayedJobRunner';
+import { SinglePeriodicJobRunner } from '@waha/utils/SinglePeriodicJobRunner';
 import { TmpDir } from '@waha/utils/tmpdir';
 import * as lodash from 'lodash';
 import * as path from 'path';
-import { ProtocolError } from 'puppeteer';
+import { Browser, ProtocolError } from 'puppeteer';
 import {
   filter,
   fromEvent,
@@ -170,8 +191,10 @@ import {
   Message as MessageInstance,
   Call as CallInstance,
 } from 'whatsapp-web.js/src/structures';
+import { GetSerialized } from '@waha/core/utils/serialized';
 
 import { WAJSPresenceChatStateType, WebJSPresence } from './types';
+import { WebJSAuthFactory } from './WebJSAuthFactory';
 import {
   isJidCus,
   isJidGroup,
@@ -199,12 +222,17 @@ export interface WebJSConfig {
 
 export class WhatsappSessionWebJSCore extends WhatsappSession {
   private START_ATTEMPT_DELAY_SECONDS = 2;
+  // how long to wait on stop for the browser to close gracefully before force-killing it
+  private DESTROY_TIMEOUT_MS = 10_000;
+
+  authFactory = new WebJSAuthFactory();
 
   engine = WAHAEngine.WEBJS;
   protected engineConfig?: WebJSConfig;
 
   private startDelayedJob: SingleDelayedJobRunner;
   private engineStateCheckDelayedJob: SingleDelayedJobRunner;
+  private whatsNewModalJob: SinglePeriodicJobRunner;
   private shouldRestart: boolean;
   private lastQRDate: Date = null;
   private static readonly REACTION_MAX_AGE_MS = 2 * 24 * 60 * 60 * 1000;
@@ -228,6 +256,13 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
       'engine-state-check',
       2 * SECOND,
       this.logger,
+    );
+    // Hide the "What's New" modal that blocks app init after QR login
+    this.whatsNewModalJob = new SinglePeriodicJobRunner(
+      'hide-whats-new-modal',
+      SECOND,
+      this.logger,
+      false,
     );
   }
 
@@ -283,16 +318,19 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   }
 
   protected async buildClient() {
+    const authStrategy = await this.authFactory.buildAuth(
+      this.sessionStore,
+      this.name,
+      this.loggerBuilder,
+    );
     const clientOptions = this.getClientOptions();
-    const base = process.env.WAHA_LOCAL_STORE_BASE_DIR || './.sessions';
-    clientOptions.authStrategy = new LocalAuth({
-      clientId: this.name,
-      dataPath: `${base}/webjs/default`,
-      logger: this.logger,
-      rmMaxRetries: undefined,
-    });
+    clientOptions.authStrategy = authStrategy;
     this.addProxyConfig(clientOptions);
-    return new WebjsClientCore(clientOptions, this.getWebjsTagsFlag());
+    return new WebjsClientCore(
+      clientOptions,
+      this.getWebjsTagsFlag(),
+      this.logger,
+    );
   }
 
   protected getWebjsTagsFlag() {
@@ -400,6 +438,8 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
             console.log(`url is ${location.href}`),
           );
         }
+
+        this.startWhatsNewModalJob();
       })
       .catch((error) => {
         this.logger.error(error);
@@ -433,11 +473,11 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   async stop() {
     this.cleanupPresenceTimeout();
     this.shouldRestart = false;
+    this.startDelayedJob.cancel();
+    await this.end();
     this.status = WAHASessionStatus.STOPPED;
     this.stopEvents();
-    this.startDelayedJob.cancel();
     this.mediaManager.close();
-    await this.end();
   }
 
   protected failed() {
@@ -468,6 +508,7 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     this.cleanupPresenceTimeout();
     this.presence = null;
     this.engineStateCheckDelayedJob.cancel();
+    this.whatsNewModalJob.stop();
     this.whatsapp?.removeAllListeners();
     this.whatsapp?.pupBrowser?.removeAllListeners();
     this.whatsapp?.pupPage?.removeAllListeners();
@@ -494,10 +535,14 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     }
 
     try {
-      await this.whatsapp?.destroy();
+      await promiseTimeout(this.DESTROY_TIMEOUT_MS, this.whatsapp?.destroy());
       this.logger.debug('Successfully destroyed whatsapp client');
     } catch (error) {
       this.logger.error(error, 'Failed to destroy whatsapp client');
+      const browser = this.whatsapp?.pupBrowser;
+      if (browser) {
+        await this.kill(browser);
+      }
     }
 
     try {
@@ -510,6 +555,33 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     }
   }
 
+  /**
+   * Force-kill the Chromium process when the graceful destroy() failed or timed out.
+   * Throws if the browser can not be proven dead - the session is not fully stopped then.
+   */
+  private async kill(browser: Browser) {
+    // shadows the Node.js global 'process' on purpose - the global one is not used here
+    const process = browser.process();
+    if (!process) {
+      // remote or attached browser - we have no process handle to kill
+      throw new Error(
+        'No browser process to kill, can not guarantee the browser is closed',
+      );
+    }
+    if (process.exitCode !== null || process.signalCode !== null) {
+      return;
+    }
+    this.logger.warn('Force killing the browser process');
+    const exited = new Promise<void>((resolve) =>
+      process.once('exit', () => resolve()),
+    );
+    process.kill('SIGKILL');
+    // the session is stopped only when the browser process is really dead - verify it, do not assume
+    await promiseTimeout(5_000, exited).catch(() => {
+      throw new Error('The browser process did not exit after SIGKILL');
+    });
+  }
+
   getSessionMeInfo(): MeInfo | null {
     const clientInfo = this.whatsapp?.info;
     if (!clientInfo) {
@@ -517,8 +589,11 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     }
     const wid = clientInfo.wid;
     return {
-      id: wid?._serialized,
+      id: GetSerialized(wid),
+      lid: GetSerialized(clientInfo.lid),
       pushName: clientInfo?.pushname,
+      reachoutTimelock: this.reachoutTimelock.value,
+      messageCapping: this.messageCapping.value,
     };
   }
 
@@ -534,7 +609,54 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     }
   }
 
+  private startWhatsNewModalJob() {
+    // The "What's New" modal can block app init right after QR login, so the session never leaves STARTING
+    // https://github.com/devlikeapro/waha/issues/2217
+    this.whatsNewModalJob.start(async () => {
+      let hidden = false;
+      try {
+        hidden = await this.whatsapp.hideWhatsNewModal();
+      } catch (err) {
+        // The page navigates during login, evaluate() can fail - retry on the next tick
+        this.logger.debug(`Failed to hide "What's New" modal: ${err}`);
+        return;
+      }
+      if (hidden) {
+        this.logger.info(`"What's New" modal has been dismissed`);
+        return;
+      }
+      // The cool-off is stored user-scoped, so keep re-checking until it holds after login
+      if (this.status === WAHASessionStatus.WORKING) {
+        this.whatsNewModalJob.stop();
+      }
+    });
+  }
+
   protected listenConnectionEvents() {
+    this.whatsapp.on(Events.REACHOUT_TIMELOCK_UPDATE, (record: any) => {
+      this.updateReachoutTimelockFromRecord(record);
+    });
+
+    this.whatsapp.on(Events.MESSAGE_CAPPING_UPDATE, (record: any) => {
+      // Unlike the timelock, a null record means "no local data yet", not "capping lifted"
+      if (!record) {
+        return;
+      }
+      this.messageCapping.update(parseMessageCapping(record));
+    });
+
+    this.whatsapp.on(Events.READY, async () => {
+      // Ask WhatsApp for the current message capping state, the same fetch the app runs on startup
+      try {
+        const data = await this.whatsapp.fetchMessageCapping();
+        if (data) {
+          this.messageCapping.update(parseMessageCapping(data));
+        }
+      } catch (err) {
+        this.logger.warn(err, 'Failed to fetch message capping');
+      }
+    });
+
     this.whatsapp.on(Events.QR_RECEIVED, async (qr) => {
       this.logger.debug('QR received');
       // Convert to image and save
@@ -650,14 +772,12 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
 
   private async loadClientInfo() {
     const data = await this.whatsapp.pupPage.evaluate(() => {
+      const WAWebUserPrefsMeUser = window.require('WAWebUserPrefsMeUser');
       return {
-        // @ts-ignore
-        ...window.Store.Conn.serialize(),
+        ...window.require('WAWebConnModel').Conn.serialize(),
         wid:
-          // @ts-ignore
-          window.Store.User.getMaybeMePnUser() ||
-          // @ts-ignore
-          window.Store.User.getMaybeMeLidUser(),
+          WAWebUserPrefsMeUser.getMaybeMePnUser() ||
+          WAWebUserPrefsMeUser.getMaybeMeLidUser(),
       };
     });
     this.whatsapp.info = data as any;
@@ -726,7 +846,7 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     }
     return {
       numberExists: true,
-      chatId: result._serialized,
+      chatId: GetSerialized(result),
     };
   }
 
@@ -745,26 +865,105 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     return true;
   }
 
+  private async fileToMedia(
+    file: BinaryFile | RemoteFile,
+  ): Promise<MessageMedia> {
+    if ('url' in file) {
+      const mediaOptions = { unsafeMime: true };
+      const media = await MessageMedia.fromUrl(file.url, mediaOptions);
+      media.mimetype = file.mimetype || media.mimetype;
+      media.filename = file.filename || media.filename;
+      return media;
+    }
+    return new MessageMedia(file.mimetype, file.data, file.filename);
+  }
+
+  @Activity()
   protected async setProfilePicture(
     file: BinaryFile | RemoteFile,
   ): Promise<boolean> {
-    let media: any;
-    if ('data' in file) {
-      media = new MessageMedia(
-        file.mimetype,
-        file.data,
-        file.filename ?? null,
-      );
-    } else {
-      media = await MessageMedia.fromUrl(file.url, { unsafeMime: true });
-    }
-    await this.whatsapp.setProfilePicture(media);
-    return true;
+    const media = await this.fileToMedia(file);
+    return await this.whatsapp.setProfilePicture(media);
   }
 
   protected async deleteProfilePicture(): Promise<boolean> {
-    await this.whatsapp.deleteProfilePicture();
-    return true;
+    return await this.whatsapp.deleteProfilePicture();
+  }
+
+  @Activity()
+  public async fetchMessageCapping(): Promise<MessageCappingData> {
+    const data = await this.whatsapp.fetchMessageCapping();
+    if (!data) {
+      throw new NotImplementedByEngineError(
+        'Message capping is not available in the current WhatsApp Web version',
+      );
+    }
+    const capping = parseMessageCapping(data);
+    // Keep the tracker in sync so MeInfo and 'session.status' reflect the fetch
+    this.messageCapping.update(capping);
+    return capping;
+  }
+
+  @Activity()
+  public async fetchReachoutTimelock(): Promise<ReachoutTimelockData> {
+    const record = await this.whatsapp.fetchReachoutTimelock();
+    if (record === undefined) {
+      throw new NotImplementedByEngineError(
+        'Reachout timelock is not available in the current WhatsApp Web version',
+      );
+    }
+    return this.updateReachoutTimelockFromRecord(record);
+  }
+
+  // Applies the stored 'WAReachoutTimelockState' record (or its removal) to the tracker,
+  // so MeInfo and 'session.status' reflect it, and returns the resulting state
+  private updateReachoutTimelockFromRecord(record: any): ReachoutTimelockData {
+    if (!record) {
+      // The app removes the stored record when the enforcement is lifted (or there is none)
+      const current = this.reachoutTimelock.value;
+      if (current?.isActive) {
+        this.reachoutTimelock.update({ ...current, isActive: false });
+      }
+      return (
+        this.reachoutTimelock.value ?? {
+          enforcementType: ReachoutTimelockEnforcementType.DEFAULT,
+          isActive: false,
+          timeEnforcementEnds: null,
+        }
+      );
+    }
+    const enforcementType =
+      record.enforcement_type ?? ReachoutTimelockEnforcementType.DEFAULT;
+    const timelock: ReachoutTimelockData = {
+      enforcementType: enforcementType as ReachoutTimelockEnforcementType,
+      // The record only exists while the enforcement is active
+      isActive: true,
+      // The app stores 'time_enforcement_ends' as unix milliseconds
+      timeEnforcementEnds: record.time_enforcement_ends
+        ? EnsureSeconds(record.time_enforcement_ends)
+        : null,
+    };
+    this.reachoutTimelock.update(timelock);
+    return timelock;
+  }
+
+  /**
+   * Groups methods
+   */
+  @Activity()
+  protected async setGroupPicture(
+    id: string,
+    file: BinaryFile | RemoteFile,
+  ): Promise<boolean> {
+    const media = await this.fileToMedia(file);
+    const groupChat = (await this.whatsapp.getChatById(id)) as GroupChat;
+    return await groupChat.setPicture(media);
+  }
+
+  @Activity()
+  protected async deleteGroupPicture(id: string): Promise<boolean> {
+    const groupChat = (await this.whatsapp.getChatById(id)) as GroupChat;
+    return await groupChat.deletePicture();
   }
 
   /**
@@ -859,69 +1058,140 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   }
 
   @Activity()
-  async sendImage(request: MessageImageRequest) {
-    const chatId = this.ensureSuffix(request.chatId);
-    let media: any;
-    if ('data' in request.file) {
-      media = new MessageMedia(
-        request.file.mimetype,
-        request.file.data,
-        request.file.filename ?? null,
-      );
-    } else {
-      media = await MessageMedia.fromUrl(request.file.url, {
-        unsafeMime: true,
-      });
-    }
-    const options: any = this.getMessageOptions(request);
-    if (request.caption) options.caption = request.caption;
-    return this.whatsapp.sendMessage(chatId, media, options);
-  }
-
-  @Activity()
   async sendFile(request: MessageFileRequest) {
-    const chatId = this.ensureSuffix(request.chatId);
-    let media: any;
-    if ('data' in request.file) {
-      media = new MessageMedia(
-        request.file.mimetype,
-        request.file.data,
-        request.file.filename ?? null,
-      );
-    } else {
-      media = await MessageMedia.fromUrl(request.file.url, {
-        unsafeMime: true,
-      });
+    const media = await this.fileToMedia(request.file);
+    if (!media.mimetype) {
+      media.mimetype = await detectMimetype(Buffer.from(media.data, 'base64'));
     }
-    const options: any = this.getMessageOptions(request);
-    if (request.caption) options.caption = request.caption;
-    return this.whatsapp.sendMessage(chatId, media, options);
+    let options = this.getMessageOptions(request);
+    options = {
+      ...options,
+      sendMediaAsDocument: true,
+      caption: request.caption,
+    };
+    return this.whatsapp.sendMessage(
+      this.ensureSuffix(request.chatId),
+      media,
+      options,
+    );
   }
 
   @Activity()
-  async sendVoice(request: MessageVoiceRequest) {
-    const chatId = this.ensureSuffix(request.chatId);
-    let media: any;
-    if ('data' in request.file) {
-      media = new MessageMedia(
-        request.file.mimetype || 'audio/ogg',
-        request.file.data,
-        null,
-      );
-    } else {
-      media = await MessageMedia.fromUrl(request.file.url, {
-        unsafeMime: true,
-      });
+  async sendImage(request: MessageImageRequest) {
+    const media = await this.fileToMedia(request.file);
+    media.mimetype = media.mimetype || WAMimeType.IMAGE;
+    let options = this.getMessageOptions(request);
+    options = {
+      ...options,
+      caption: request.caption,
+    };
+    return this.whatsapp.sendMessage(
+      this.ensureSuffix(request.chatId),
+      media,
+      options,
+    );
+  }
+
+  @Activity()
+  async sendVoice(request) {
+    const media = await this.fileToMedia(request.file);
+    if (request.convert) {
+      await this.convertVoice(media);
     }
-    const options: any = {
-      ...this.getMessageOptions(request),
+    media.mimetype = request.file.mimetype || WAMimeType.VOICE;
+    let options = this.getMessageOptions(request);
+    options = {
+      ...options,
       sendAudioAsVoice: true,
     };
-    return this.whatsapp.sendMessage(chatId, media, options);
+    return this.whatsapp.sendMessage(
+      this.ensureSuffix(request.chatId),
+      media,
+      options,
+    );
   }
 
-  sendButtonsReply(request: MessageButtonReply) {
-    throw new AvailableInPlusVersion();
+  @Activity()
+  async sendVideo(request: MessageVideoRequest) {
+    this.checkBrowserIsChrome();
+    const media = await this.fileToMedia(request.file);
+    media.mimetype = media.mimetype || WAMimeType.VIDEO;
+    if (request.convert) {
+      await this.convertVideo(media);
+    }
+
+    let options = this.getMessageOptions(request);
+    options = {
+      ...options,
+      caption: request.caption,
+    };
+    return this.whatsapp.sendMessage(
+      this.ensureSuffix(request.chatId),
+      media,
+      options,
+    );
+  }
+
+  private async convertVideo(media: MessageMedia) {
+    let content: Buffer<ArrayBufferLike> = Buffer.from(media.data, 'base64');
+    content = await this.mediaConverter.video(content);
+    media.data = content.toString('base64');
+    media.mimetype = WAMimeType.VIDEO;
+    media.filename = null;
+    media.filesize = null;
+  }
+
+  private async convertVoice(media: MessageMedia) {
+    let content: Buffer<ArrayBufferLike> = Buffer.from(media.data, 'base64');
+    content = await this.mediaConverter.voice(content);
+    media.data = content.toString('base64');
+    media.mimetype = WAMimeType.VOICE;
+    media.filename = null;
+    media.filesize = null;
+  }
+
+  @Activity()
+  async sendPollVote(request: MessagePollVoteRequest) {
+    const message = await this.whatsapp.getMessageById(request.pollMessageId);
+    if (!message) {
+      throw new UnprocessableEntityException(
+        `Poll message not found: ${request.pollMessageId}`,
+      );
+    }
+    return message.vote(request.votes);
+  }
+
+  @Activity()
+  async sendButtonsReply(request: MessageButtonReply) {
+    const options = this.getMessageOptions(request);
+    const extra: any = {
+      type: 'buttons_response',
+      kind: 'buttonsResponse',
+      // WAWebGenerateButtonsResponseMessageProto reads the top-level field; nested buttonsResponse is legacy-gated
+      // behind the "wa_web_buttons_response_prop_removal_killswitch" ABProp (default off).
+      // Keep both like the native WAWebSendButtonsMsgReplyChatAction does
+      selectedButtonId: request.selectedButtonID,
+      buttonsResponse: {
+        selectedButtonId: request.selectedButtonID,
+        selectedDisplayText: request.selectedDisplayText,
+        type: 1,
+      },
+      viewMode: 'VISIBLE',
+    };
+    options.extra = extra;
+    return this.whatsapp.sendMessage(
+      this.ensureSuffix(request.chatId),
+      request.selectedDisplayText,
+      options,
+    );
+  }
+
+  private checkBrowserIsChrome() {
+    if (!IsChrome) {
+      const msg =
+        'Use "devlikeapro/waha:chrome" docker image to send video in WEBJS';
+      throw new UnprocessableEntityException(msg);
+    }
   }
 
   @Activity()
@@ -1034,14 +1304,14 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
 
   protected async fetchChatSummary(chat: Chat): Promise<ChatSummary> {
     const picture = await this.getContactProfilePicture(
-      chat.id._serialized,
+      GetSerialized(chat.id),
       false,
     );
     const lastMessage = chat.lastMessage
       ? this.toWAMessage(chat.lastMessage)
       : null;
     return {
-      id: chat.id._serialized,
+      id: GetSerialized(chat.id),
       name: chat.name || null,
       picture: picture,
       lastMessage: lastMessage,
@@ -1147,7 +1417,7 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
       // @ts-ignore
       message.rawData.receipts = await message.getInfo().catch((error) => {
         this.logger.error(
-          { error: error, msg: message.id._serialized },
+          { error: error, msg: GetSerialized(message.id) },
           'Failed to get receipts',
         );
         return null;
@@ -1405,6 +1675,22 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
     return groupChat.setMessagesAdminsOnly(value);
   }
 
+  public async getMemberAddMode(id): Promise<SettingsMemberAddMode> {
+    const groupChat = (await this.whatsapp.getChatById(id)) as GroupChat;
+    return {
+      membersCanAddNewMember:
+        // @ts-ignore
+        groupChat.groupMetadata.memberAddMode === 'all_member_add',
+    };
+  }
+
+  @Activity()
+  public async setMemberAddMode(id, value) {
+    const groupChat = (await this.whatsapp.getChatById(id)) as GroupChat;
+    // The library setter is inverted - it takes "adminsOnly"
+    return groupChat.setAddMembersAdminsOnly(!value);
+  }
+
   public async getGroups(pagination: PaginationParams) {
     const chats = await this.whatsapp.getChats();
     const groups = lodash.filter(chats, (chat) => chat.isGroup);
@@ -1523,23 +1809,85 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   /**
    * Channels methods
    */
-  public searchChannelsByView(
+  @Activity()
+  public async searchChannelsByView(
     query: ChannelSearchByView,
   ): Promise<ChannelListResult> {
-    throw new AvailableInPlusVersion();
+    const params = {
+      view: query.view || 'TRENDING',
+      countryCodes: query.countries,
+      cursorToken: query.startCursor,
+      categories: query.categories,
+      limit: query.limit,
+    };
+    const data = await this.whatsapp.searchChannelsView(params);
+    return this.channelsRawDataToResponse(data);
   }
 
-  public searchChannelsByText(
+  @Activity()
+  public async searchChannelsByText(
     query: ChannelSearchByText,
   ): Promise<ChannelListResult> {
-    throw new AvailableInPlusVersion();
+    const params = {
+      searchText: query.text,
+      cursorToken: query.startCursor,
+      categories: query.categories,
+      limit: query.limit,
+    };
+    const data = await this.whatsapp.searchChannelsText(params);
+    return this.channelsRawDataToResponse(data);
   }
 
+  private channelsRawDataToResponse(data: any): ChannelListResult {
+    const pageInfo = data.pageInfo;
+    const newsletters = data.newsletters;
+    return {
+      page: {
+        startCursor: pageInfo.startCursor,
+        endCursor: pageInfo.endCursor,
+        hasNextPage: pageInfo.hasNextPage,
+        hasPreviousPage: pageInfo.hasPreviousPage,
+      },
+      channels: newsletters.map(NewsletterMetadataToChannel),
+    };
+  }
+
+  @Activity()
   public async previewChannelMessages(
     inviteCode: string,
     query: PreviewChannelMessages,
   ): Promise<ChannelMessage[]> {
-    throw new AvailableInPlusVersion();
+    const channelMessages = await this.whatsapp.channelFetchMessageByInvite(
+      inviteCode,
+      query.limit,
+    );
+    const promises = [];
+    for (const msg of channelMessages) {
+      promises.push(
+        this.WebjsChannelMessageToChannelMessage(msg, query.downloadMedia),
+      );
+    }
+    return await Promise.all(promises);
+  }
+
+  private async WebjsChannelMessageToChannelMessage(
+    channelMessage: WebjsChannelMessage,
+    downloadMedia: boolean,
+  ): Promise<ChannelMessage> {
+    const message = await this.processIncomingMessage(
+      channelMessage.message,
+      downloadMedia,
+    );
+    const reactions = {};
+    for (const reaction of channelMessage.reactions.sort((x) => -x.count)) {
+      reactions[reaction.reaction] = reaction.count;
+    }
+
+    return {
+      message: message,
+      reactions: reactions,
+      viewCount: channelMessage.viewCount,
+    };
   }
 
   protected ChatToChannel(chat: WEBJSChannel): Channel {
@@ -1550,7 +1898,7 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
       role = ChannelRole.GUEST;
     }
     return {
-      id: chat.id._serialized,
+      id: GetSerialized(chat.id),
       name: chat.name,
       description: chat.description,
       invite: getChannelInviteLink(metadata.inviteCode),
@@ -1610,9 +1958,7 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   public channelsCreateChannel(
     request: CreateChannelRequest,
   ): Promise<Channel> {
-    throw new NotImplementedByEngineError(
-      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
-    );
+    throw new NotImplementedByEngineError();
   }
 
   public async channelsGetChannel(id: string): Promise<Channel> {
@@ -1632,33 +1978,23 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   }
 
   public channelsDeleteChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError(
-      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
-    );
+    throw new NotImplementedByEngineError();
   }
 
   public channelsFollowChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError(
-      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
-    );
+    throw new NotImplementedByEngineError();
   }
 
   public channelsUnfollowChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError(
-      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
-    );
+    throw new NotImplementedByEngineError();
   }
 
   public channelsMuteChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError(
-      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
-    );
+    throw new NotImplementedByEngineError();
   }
 
   public channelsUnmuteChannel(id: string): Promise<void> {
-    throw new NotImplementedByEngineError(
-      'This channel operation is not supported by WEBJS engine. Use NOWEB or GOWS instead.',
-    );
+    throw new NotImplementedByEngineError();
   }
 
   /**
@@ -1753,6 +2089,44 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
         "WEBJS doesn't accept 'contacts'. Remove the field to send status to all contacts.";
       throw new UnprocessableEntityException(msg);
     }
+  }
+
+  @Activity()
+  public async sendImageStatus(status: ImageStatus) {
+    this.checkStatusRequest(status);
+    const media = await this.fileToMedia(status.file);
+    const options = {
+      caption: status.caption,
+    };
+    return this.whatsapp.sendMessage(BROADCAST_ID, media, options);
+  }
+
+  @Activity()
+  public async sendVoiceStatus(status: VoiceStatus) {
+    this.checkStatusRequest(status);
+    const media = await this.fileToMedia(status.file);
+    if (status.convert) {
+      await this.convertVoice(media);
+    }
+    media.mimetype = status.file.mimetype || WAMimeType.VOICE;
+    const options = {
+      sendAudioAsVoice: true,
+    };
+    return this.whatsapp.sendMessage(BROADCAST_ID, media, options);
+  }
+
+  @Activity()
+  public async sendVideoStatus(status: VideoStatus) {
+    this.checkBrowserIsChrome();
+    this.checkStatusRequest(status);
+    const media = await this.fileToMedia(status.file);
+    if (status.convert) {
+      await this.convertVideo(media);
+    }
+    const options = {
+      caption: status.caption,
+    };
+    return this.whatsapp.sendMessage(BROADCAST_ID, media, options);
   }
 
   @Activity()
@@ -2023,10 +2397,10 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
       },
     );
     const chatsArchived$ = chatArchived$.pipe(
-      filter((event: any) => this.jids.include(event?.chat?.id?._serialized)),
+      filter((event: any) => this.jids.include(GetSerialized(event?.chat?.id))),
       map((event) => {
         return {
-          id: event.chat.id._serialized,
+          id: GetSerialized(event.chat.id),
           archived: event.archived,
           timestamp: event.chat.timestamp,
         };
@@ -2113,7 +2487,7 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
 
     const source = this.getMessageSource(reaction.id.id);
     return {
-      id: reaction.id._serialized,
+      id: GetSerialized(reaction.id),
       from: normalizeJid(reaction.senderId),
       fromMe: reaction.id.fromMe,
       source: source,
@@ -2122,13 +2496,13 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
       timestamp: reaction.timestamp,
       reaction: {
         text: reaction.reaction,
-        messageId: reaction.msgId._serialized,
+        messageId: GetSerialized(reaction.msgId),
       },
     };
   }
 
   private toPollVotePayload(vote: WebjsPollVote): PollVotePayload | null {
-    const pollMessageId = vote?.parentMessage?.id?._serialized;
+    const pollMessageId = GetSerialized(vote?.parentMessage?.id);
     if (!pollMessageId) {
       return null;
     }
@@ -2208,10 +2582,10 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   protected toWAMessage(message: Message): WAMessage {
     const replyTo = this.extractReplyTo(message);
     const source = this.getMessageSource(message.id.id);
-    const key = parseMessageIdSerialized(message.id._serialized);
+    const key = parseMessageIdSerialized(GetSerialized(message.id));
     // @ts-ignore
     return {
-      id: message.id._serialized,
+      id: GetSerialized(message.id),
       timestamp: message.timestamp,
       from: message.from,
       fromMe: message.fromMe,
@@ -2285,7 +2659,7 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
 
   protected toWAContact(contact: Contact) {
     // @ts-ignore
-    contact.id = contact.id._serialized;
+    contact.id = GetSerialized(contact.id);
     return contact;
   }
 
@@ -2300,7 +2674,8 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   }
 
   protected async downloadMedia(message: Message) {
-    const processor = new WEBJSEngineMediaProcessor();
+    let processor = new WEBJSEngineMediaProcessor();
+    processor = new LottieMediaProcessorWrapper(processor, this.logger);
     const media = await this.mediaManager.processMedia(
       processor,
       message,
@@ -2323,6 +2698,29 @@ export class WhatsappSessionWebJSCore extends WhatsappSession {
   }
 }
 
+function NewsletterMetadataToChannel(data: any): ChannelPublicInfo {
+  const pictureDirectPath =
+    data.newsletterPictureMetadataMixin.picture?.[0]
+      .queryPictureDirectPathOrEmptyResponseMixinGroup?.value?.directPath;
+  const pictureUrl = getPublicUrlFromDirectPath(pictureDirectPath);
+  return {
+    id: data.idJid,
+    name: data.newsletterNameMetadataMixin.nameElementValue,
+    picture: pictureUrl,
+    description:
+      data.newsletterDescriptionMetadataMixin
+        .descriptionQueryDescriptionResponseMixin.elementValue,
+    invite: getChannelInviteLink(
+      data.newsletterInviteLinkMetadataMixin.inviteCode,
+    ),
+    subscribersCount: Number(
+      data.newsletterSubscribersMetadataMixin.subscribersCount,
+    ),
+    verified:
+      data.newsletterVerificationMetadataMixin.verificationState === 'verified',
+  };
+}
+
 export class WEBJSEngineMediaProcessor
   implements IMediaEngineProcessor<Message>
 {
@@ -2339,7 +2737,7 @@ export class WEBJSEngineMediaProcessor
   }
 
   getMessageId(message: Message): string {
-    return message.id._serialized;
+    return GetSerialized(message.id);
   }
 
   getMimetype(message: Message): string {

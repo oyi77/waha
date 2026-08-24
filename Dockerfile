@@ -16,10 +16,10 @@ RUN apt-get update && \
 WORKDIR /git
 COPY package.json .
 COPY yarn.lock .
+COPY .yarnrc.yml .
 ENV YARN_CHECKSUM_BEHAVIOR=update
 
 RUN npm install -g corepack && corepack enable
-RUN yarn set version 4.9.2
 RUN yarn install
 
 # App
@@ -180,7 +180,7 @@ RUN if [ "$USE_BROWSER" = "chromium" ]; then \
 # Install Chrome
 # Available versions:
 # https://www.ubuntuupdates.org/package/google_chrome/stable/main/base/google-chrome-stable
-ARG CHROME_VERSION="140.0.7339.80-1"
+ARG CHROME_VERSION="142.0.7444.134-1"
 ARG OPUSTAGS_VERSION="1.10.1"
 RUN if [ "$USE_BROWSER" = "chrome" ]; then \
         wget --no-verbose -O /tmp/chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb \
@@ -253,7 +253,7 @@ ENV CHOKIDAR_INTERVAL=5000
 ENV WAHA_ZIPPER=ZIPUNZIP
 
 # GOWS - use libc DNS resolver
-ENV GODEBUG netdns=cgo
+ENV GODEBUG=netdns=cgo
 
 # Run command, etc
 EXPOSE 3000

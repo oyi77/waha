@@ -23,6 +23,7 @@ import makeWASocket, {
   WAMessageContent,
   WAMessageKey,
   WAMessageUpdate,
+  WAVersion,
 } from '@adiwajshing/baileys';
 import { WACallEvent } from '@adiwajshing/baileys/lib/Types/Call';
 import { BaileysEventMap } from '@adiwajshing/baileys/lib/Types/Events';
@@ -36,9 +37,14 @@ import {
   LabelAssociationType,
 } from '@adiwajshing/baileys/lib/Types/LabelAssociation';
 import { MessageUserReceiptUpdate } from '@adiwajshing/baileys/lib/Types/Message';
+import type {
+  MediaGenerationOptions,
+  NewsletterFetchedUpdate,
+} from '@adiwajshing/baileys/lib/Types';
 import { ILogger } from '@adiwajshing/baileys/lib/Utils/logger';
 import { isLidUser } from '@adiwajshing/baileys/lib/WABinary/jid-utils';
-import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { UnprocessableEntityException } from '@nestjs/common';
+import { parseMessageCapping } from '@waha/core/abc/capping';
 import {
   getChannelInviteLink,
   getPublicUrlFromDirectPath,
@@ -58,22 +64,30 @@ import {
 } from '@waha/core/engines/noweb/noweb.newsletter';
 import { NowebAuthFactoryCore } from '@waha/core/engines/noweb/NowebAuthFactoryCore';
 import { NowebInMemoryStore } from '@waha/core/engines/noweb/store/NowebInMemoryStore';
-import {
-  AvailableInPlusVersion,
-  NotImplementedByEngineError,
-} from '@waha/core/exceptions';
+import { NotImplementedByEngineError } from '@waha/core/exceptions';
 import { toVcardV3 } from '@waha/core/vcard';
 import { createAgentProxy } from '@waha/core/helpers.proxy';
 import type { Agent } from 'https';
 import { IMediaEngineProcessor } from '@waha/core/media/IMediaEngineProcessor';
+import { LottieMediaProcessorWrapper } from '@waha/core/media/LottieMediaProcessorWrapper';
 import { QR } from '@waha/core/QR';
 import { AckToStatus, StatusToAck } from '@waha/core/utils/acks';
 import { pairs } from '@waha/utils/pairs';
 import { ExtractMessageKeysForRead } from '@waha/core/utils/convertors';
 import { parseMessageIdSerialized } from '@waha/core/utils/ids';
-import { isJidNewsletter, toCusFormat, toJID } from '@waha/core/utils/jids';
+import {
+  isJidNewsletter,
+  jidsFromKey,
+  toCusFormat,
+  toJID,
+} from '@waha/core/utils/jids';
 import { DistinctAck, DistinctMessages } from '@waha/core/utils/reactive';
-import { flipObject, splitAt } from '@waha/helpers';
+import {
+  flipObject,
+  parseBool,
+  sortObjectByValues,
+  splitAt,
+} from '@waha/helpers';
 import { PairingCodeResponse } from '@waha/structures/auth.dto';
 import { CallData } from '@waha/structures/calls.dto';
 import {
@@ -117,6 +131,7 @@ import {
   MessageReplyRequest,
   MessageStarRequest,
   MessageTextRequest,
+  MessageVideoRequest,
   MessageVoiceRequest,
   SendSeenRequest,
   WANumberExistResult,
@@ -136,11 +151,12 @@ import {
   WAHASessionStatus,
   WAMessageAck,
 } from '@waha/structures/enums.dto';
-import { BinaryFile, RemoteFile } from '@waha/structures/files.dto';
+import { BinaryFile, FileType, RemoteFile } from '@waha/structures/files.dto';
 import {
   CreateGroupRequest,
   GroupParticipant,
   ParticipantsRequest,
+  SettingsMemberAddMode,
   SettingsSecurityChangeInfo,
 } from '@waha/structures/groups.dto';
 import {
@@ -158,7 +174,13 @@ import {
   WAHAPresenceData,
 } from '@waha/structures/presence.dto';
 import { WAMessage, WAMessageReaction } from '@waha/structures/responses.dto';
-import { MeInfo } from '@waha/structures/sessions.dto';
+import {
+  MeInfo,
+  MessageCappingData,
+  ReachoutTimelockData,
+  ReachoutTimelockEnforcementType,
+} from '@waha/structures/sessions.dto';
+import { EnsureSeconds } from '@waha/utils/timehelper';
 import {
   BROADCAST_ID,
   DeleteStatusRequest,
@@ -176,9 +198,8 @@ import {
   WAMessageEditedBody,
   WAMessageRevokedBody,
 } from '@waha/structures/webhooks.dto';
-import { fetchBuffer } from '@waha/utils/fetch';
 import { LoggerBuilder } from '@waha/utils/logging';
-import { sleep, waitUntil } from '@waha/utils/promiseTimeout';
+import { promiseTimeout, sleep, waitUntil } from '@waha/utils/promiseTimeout';
 import { exclude } from '@waha/utils/reactive/ops/exclude';
 import { SingleDelayedJobRunner } from '@waha/utils/SingleDelayedJobRunner';
 import { SinglePeriodicJobRunner } from '@waha/utils/SinglePeriodicJobRunner';
@@ -200,6 +221,7 @@ import {
 } from 'rxjs';
 import { debounceTime, map } from 'rxjs/operators';
 
+import { NowebClient } from './NowebClient';
 import { INowebStore } from './store/INowebStore';
 import { NowebPersistentStore } from './store/NowebPersistentStore';
 import { NowebStorageFactoryCore } from './store/NowebStorageFactoryCore';
@@ -208,16 +230,30 @@ import { Agents } from '@waha/core/engines/noweb/types';
 import {
   IsEditedMessage,
   IsHistorySyncNotification,
+  IsSecretEncryptedMessageEdit,
 } from '@waha/core/utils/pwa';
+import {
+  decryptSecretEncryptedMessageEditProto,
+  getOrigSenderJidForMsgSecret,
+  jidToNonAD,
+} from '@waha/core/utils/secretEncryptedMessageEdit';
 import { extractWALocation } from '@waha/core/engines/waproto/locaiton';
 import { extractVCards } from '@waha/core/engines/waproto/vcards';
 import { Activity } from '@waha/core/abc/activity';
+import { WAMimeType } from '@waha/core/media/WAMimeType';
 import {
   WAHA_CLIENT_BROWSER_NAME,
   WAHA_CLIENT_DEVICE_NAME,
 } from '@waha/core/env';
+import { detectMimetype } from '@waha/utils/files';
+import esm from '@waha/vendor/esm';
+import axios from 'axios';
+import axiosRetry from 'axios-retry';
+import { formatWaVersion } from '@waha/core/engines/noweb/waversion';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const promiseRetry = require('promise-retry');
+
+axiosRetry(axios, { retries: 3 });
 
 export const BaileysEvents = {
   CONNECTION_UPDATE: 'connection.update',
@@ -238,11 +274,18 @@ const PresenceStatuses = {
 };
 const ToEnginePresenceStatus = flipObject(PresenceStatuses);
 
+export interface NowebConfig {
+  waVersion: WAVersion;
+}
+
 export class WhatsappSessionNoWebCore extends WhatsappSession {
   private START_ATTEMPT_DELAY_SECONDS = 2;
   private AUTO_RESTART_AFTER_SECONDS = 28 * 60;
+  // how long to wait on stop for the WebSocket close handshake and store close before forcing it
+  private CLOSE_TIMEOUT_MS = 3_000;
 
   engine = WAHAEngine.NOWEB;
+  protected engineConfig: NowebConfig;
   authFactory = new NowebAuthFactoryCore();
   storageFactory = new NowebStorageFactoryCore();
   private startDelayedJob: SingleDelayedJobRunner;
@@ -360,7 +403,9 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     if (markOnlineOnConnect == undefined) {
       markOnlineOnConnect = true;
     }
+    const version = this.engineConfig?.waVersion;
     return {
+      version: version,
       agent: agents?.socket,
       // Baileys media upload uses Node https.request in Node runtime.
       fetchAgent: agents?.fetch as Agent,
@@ -398,6 +443,9 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       agents,
       state,
     ) as SocketConfig;
+    this.logger.info(
+      `Connecting using wa.version = ${formatWaVersion(socketConfig.version)}`,
+    );
     const sock = makeWASocket(socketConfig);
     sock.ev.on('creds.update', saveCreds);
     return sock;
@@ -519,13 +567,33 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
 
   protected listenConnectionEvents() {
     this.logger.debug(`Start listening ${BaileysEvents.CONNECTION_UPDATE}...`);
+    this.sock.ev.on('message-capping.update', (data) => {
+      this.messageCapping.update(parseMessageCapping(data));
+    });
     this.sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr, isNewLogin } = update;
+      if (update.reachoutTimeLock) {
+        this.updateReachoutTimelockFromState(update.reachoutTimeLock);
+      }
       if (isNewLogin) {
         this.restartClient();
       } else if (connection === 'open') {
         this.qr.save('');
         this.status = WAHASessionStatus.WORKING;
+        // Ask WhatsApp for the current reachout timelock state, so a restarted session learns about
+        // an ongoing timelock without waiting for a push. The result arrives via 'connection.update'
+        this.sock?.fetchAccountReachoutTimelock?.().catch((error) => {
+          this.logger.warn(`Failed to fetch reachout timelock: ${error}`);
+        });
+        // Same for the new-chat message capping - there is no push on (re)connect, only on changes
+        this.sock
+          ?.fetchNewChatMessageCap?.()
+          .then((data) => {
+            this.messageCapping.update(parseMessageCapping(data));
+          })
+          .catch((error) => {
+            this.logger.warn(`Failed to fetch message capping: ${error}`);
+          });
         // Do we need to resubscribe?
         // Ideally not, we need to explicitly call interesting
         // jids every 1 minute
@@ -603,16 +671,11 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       });
       this.logger.info('Creds saved');
     }
+    await this.end();
+    await this.closeStores();
     this.status = WAHASessionStatus.STOPPED;
     this.stopEvents();
-
     this.mediaManager.close();
-    await this.end();
-    await this.store?.close();
-    this.authNOWEBStore?.close().catch((err) => {
-      this.logger.error('Failed to close NOWEB auth store');
-      this.logger.error(err, err.stack);
-    });
   }
 
   protected async failed() {
@@ -628,8 +691,34 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       await sleep(1_000);
     }
 
+    this.stopEvents();
+    this.mediaManager.close();
     await this.end();
-    await this.store?.close();
+    await this.closeStores();
+  }
+
+  /**
+   * Close the data and auth stores with a time bound - close() may flush pending writes,
+   * and broken storage must not block session stop or process shutdown
+   */
+  private async closeStores() {
+    if (this.store) {
+      await promiseTimeout(this.CLOSE_TIMEOUT_MS, this.store.close()).catch(
+        (err) => {
+          this.logger.error('Failed to close NOWEB store');
+          this.logger.error(err, err.stack);
+        },
+      );
+    }
+    if (this.authNOWEBStore) {
+      await promiseTimeout(
+        this.CLOSE_TIMEOUT_MS,
+        this.authNOWEBStore.close(),
+      ).catch((err) => {
+        this.logger.error('Failed to close NOWEB auth store');
+        this.logger.error(err, err.stack);
+      });
+    }
   }
 
   private fixMessages() {
@@ -809,13 +898,41 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     this.cleanupPresenceTimeout();
     this.presence = null;
     this.autoRestartJob.stop();
+    const sock = this.sock;
     // @ts-ignore
-    this.sock?.ev?.removeAllListeners();
-    this.sock?.ws?.removeAllListeners();
+    sock?.ev?.removeAllListeners();
+    sock?.ws?.removeAllListeners();
     // wait until connection is not connecting to avoid error:
     // "WebSocket was closed before the connection was established"
-    await waitUntil(async () => !this.sock?.ws?.isConnecting, 1_000, 10_000);
-    this.sock?.end(undefined);
+    await waitUntil(async () => !sock?.ws?.isConnecting, 1_000, 10_000);
+    if (!sock) {
+      return;
+    }
+    // sock.end() waits for the WebSocket close handshake - on a dead or already closed connection
+    // it can hang forever, so bound it and destroy the raw TCP socket to let the process exit
+    const closing = sock.end(undefined);
+    try {
+      await promiseTimeout(this.CLOSE_TIMEOUT_MS, closing);
+    } catch (err) {
+      this.logger.warn(
+        `WebSocket did not close in ${this.CLOSE_TIMEOUT_MS}ms, terminating it: ${err}`,
+      );
+      this.terminate(sock);
+    }
+  }
+
+  /**
+   * Destroy the raw TCP socket behind Baileys WebSocket wrapper.
+   * ws.terminate() skips the close handshake, so it works even on half-open connections.
+   */
+  private terminate(sock: ReturnType<typeof makeWASocket>) {
+    // 'socket' is protected on Baileys WebSocketClient, reach it at runtime
+    const raw = (sock.ws as any)?.socket;
+    try {
+      raw?.terminate?.();
+    } catch (err) {
+      this.logger.warn(`Failed to terminate WebSocket: ${err}`);
+    }
   }
 
   getSessionMeInfo(): MeInfo | null {
@@ -828,6 +945,8 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       id: toCusFormat(meId),
       pushName: me.name,
       lid: jidNormalizedUser(me.lid),
+      reachoutTimelock: this.reachoutTimelock.value,
+      messageCapping: this.messageCapping.value,
     };
   }
 
@@ -902,22 +1021,53 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     return true;
   }
 
+  @Activity()
   protected async setProfilePicture(
     file: BinaryFile | RemoteFile,
   ): Promise<boolean> {
-    const buffer =
-      'data' in file
-        ? Buffer.from(file.data, 'base64')
-        : await fetchBuffer(file.url);
-    const jid = toJID(this.ensureSuffix(this.sock.authState.creds.me?.id));
-    await this.sock.updateProfilePicture(jid, buffer);
+    const content: Buffer = await this.fileToBuffer(file);
+    const me = this.getSessionMeInfo();
+    await this.sock.updateProfilePicture(me.id, content);
     return true;
   }
 
   protected async deleteProfilePicture(): Promise<boolean> {
-    const jid = toJID(this.ensureSuffix(this.sock.authState.creds.me?.id));
-    await this.sock.removeProfilePicture(jid);
+    const me = this.getSessionMeInfo();
+    await this.sock.removeProfilePicture(me.id);
     return true;
+  }
+
+  @Activity()
+  public async fetchMessageCapping(): Promise<MessageCappingData> {
+    const data = await this.sock.fetchNewChatMessageCap();
+    const capping = parseMessageCapping(data);
+    // Keep the tracker in sync so MeInfo and 'session.status' reflect the fetch
+    this.messageCapping.update(capping);
+    return capping;
+  }
+
+  @Activity()
+  public async fetchReachoutTimelock(): Promise<ReachoutTimelockData> {
+    const state = await this.sock.fetchAccountReachoutTimelock();
+    return this.updateReachoutTimelockFromState(state);
+  }
+
+  private updateReachoutTimelockFromState(timelock: any): ReachoutTimelockData {
+    const enforcementType =
+      timelock.enforcementType ?? ReachoutTimelockEnforcementType.DEFAULT;
+    let timeEnforcementEnds: number | null = null;
+    if (timelock.timeEnforcementEnds) {
+      timeEnforcementEnds = EnsureSeconds(
+        timelock.timeEnforcementEnds.getTime(),
+      );
+    }
+    const data: ReachoutTimelockData = {
+      enforcementType: enforcementType as ReachoutTimelockEnforcementType,
+      isActive: timelock.isActive === true,
+      timeEnforcementEnds: timeEnforcementEnds,
+    };
+    this.reachoutTimelock.update(data);
+    return data;
   }
 
   /**
@@ -1070,45 +1220,97 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
 
   @Activity()
   async sendImage(request: MessageImageRequest) {
+    const message: any = await this.fileToMessage(
+      request.file,
+      'image',
+      request.caption,
+    );
+    message.mimetype = message.mimetype || WAMimeType.IMAGE;
     const chatId = toJID(this.ensureSuffix(request.chatId));
-    const buffer = await this.uploadMedia(request.file, 'image');
-    const message: any = {
-      image: buffer,
-      caption: request.caption,
-      mimetype: request.file?.mimetype,
-      mentions: request.mentions?.map(toJID),
-    };
+    // Baileys' newsletter media path skips thumbnail and dimension computation.
+    // Pre-compute them so iOS renders the image with the correct aspect ratio.
+    if (isJidNewsletter(chatId)) {
+      try {
+        const thumb = await esm.b.extractImageThumb(message.image, 72);
+        message.jpegThumbnail = thumb.buffer;
+        message.width = thumb.original.width;
+        message.height = thumb.original.height;
+      } catch (err) {
+        this.logger.warn(
+          { error: err },
+          'Failed to generate thumbnail for newsletter image',
+        );
+      }
+    }
+    if (request.mentions?.length) {
+      message.mentions = request.mentions.map((mention) => toJID(mention));
+    }
     const options = await this.getMessageOptions(request);
-    return await this.sock.sendMessage(chatId, message, options);
+    return this.sock.sendMessage(chatId, message, options);
   }
 
   @Activity()
   async sendFile(request: MessageFileRequest) {
+    const message: any = await this.fileToMessage(
+      request.file,
+      'document',
+      request.caption,
+    );
+    if (!message.mimetype) {
+      message.mimetype = await detectMimetype(message['document']);
+    }
+    if (request.mentions?.length) {
+      message.mentions = request.mentions.map((mention) => toJID(mention));
+    }
     const chatId = toJID(this.ensureSuffix(request.chatId));
-    const buffer = await this.uploadMedia(request.file, 'document');
-    const message: any = {
-      document: buffer,
-      caption: request.caption,
-      mimetype: request.file?.mimetype,
-      fileName: request.file?.filename,
-      mentions: request.mentions?.map(toJID),
-    };
     const options = await this.getMessageOptions(request);
-    return await this.sock.sendMessage(chatId, message, options);
+    return this.sock.sendMessage(chatId, message, options);
   }
 
   @Activity()
   async sendVoice(request: MessageVoiceRequest) {
+    const message: any = await this.fileToMessage(request.file, 'audio');
+    message.mimetype = message.mimetype || WAMimeType.VOICE;
+    if (request.convert) {
+      message['audio'] = await this.mediaConverter.voice(message['audio']);
+      message.mimetype = WAMimeType.VOICE;
+    }
     const chatId = toJID(this.ensureSuffix(request.chatId));
-    const buffer = await this.uploadMedia(request.file, 'audio');
-    const mimetype = request.file?.mimetype || 'audio/ogg; codecs=opus';
-    const message: any = {
-      audio: buffer,
-      mimetype: mimetype,
-      ptt: true,
-    };
     const options = await this.getMessageOptions(request);
-    return await this.sock.sendMessage(chatId, message, options);
+    return this.sock.sendMessage(chatId, message, options);
+  }
+
+  @Activity()
+  async sendVideo(request: MessageVideoRequest) {
+    const message: any = await this.fileToMessage(
+      request.file,
+      'video',
+      request.caption,
+    );
+    message.mimetype = message.mimetype || WAMimeType.VIDEO;
+    if (request.convert) {
+      message['video'] = await this.mediaConverter.video(message['video']);
+      message.mimetype = WAMimeType.VIDEO;
+    }
+    if (request.mentions?.length) {
+      message.mentions = request.mentions.map((mention) => toJID(mention));
+    }
+    const duration = await esm.b
+      .getAudioDuration(message['video'])
+      .catch((err) => {
+        this.logger.warn({ error: err }, 'Failed to get video duration');
+        return undefined;
+      });
+    message.seconds = duration;
+    const isGif = request.file?.mimetype === 'image/gif';
+    if (isGif) {
+      message.gifPlayback = true;
+      message.externalShareFullVideoDurationInSeconds = 0;
+    }
+    const chatId = toJID(this.ensureSuffix(request.chatId));
+    const options = await this.getMessageOptions(request);
+    message.ptv = parseBool(request.asNote);
+    return this.sock.sendMessage(chatId, message, options);
   }
 
   @Activity()
@@ -1117,34 +1319,116 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   ): Promise<any> {
     const chatId = toJID(this.ensureSuffix(request.chatId));
     const options = await this.getMessageOptions(request);
-    let jpegThumbnail: Buffer | undefined;
-    if (request.preview?.image) {
-      jpegThumbnail = await this.uploadMedia(request.preview.image as any, 'image');
-    }
-    const message: any = {
-      text: request.text,
-      extendedTextMessage: {
-        text: request.text,
-        matchedText: request.preview?.url,
-        title: request.preview?.title,
-        description: request.preview?.description,
-        jpegThumbnail: jpegThumbnail,
-      },
+    const preview = request.preview;
+    const urlInfo = {
+      'matched-text': preview.url,
+      title: preview.title,
+      description: preview.description,
+      jpegThumbnail: null,
+      highQualityThumbnail: null,
     };
-    return await this.sock.sendMessage(chatId, message, options);
+
+    if (request.preview.image) {
+      const content: Buffer = await this.fileToBuffer(request.preview.image);
+      if (!request.linkPreviewHighQuality) {
+        // generate built-in thumbnail
+        const thumbnail = await esm.b.extractImageThumb(content, 192);
+        urlInfo.jpegThumbnail = thumbnail.buffer;
+      } else {
+        // upload HQ thumbnail
+        // newsletters need the thumbnail uploaded unencrypted (plaintext path),
+        // otherwise clients can not render it (white/blurred preview image)
+        const uploadToServer = this.sock.waUploadToServer;
+        const uploadThumbnail = async (encFilePath, opts) => {
+          opts.newsletter = isJidNewsletter(chatId);
+          return await uploadToServer(encFilePath, opts);
+        };
+        const { imageMessage } = await esm.b.prepareWAMessageMedia(
+          { image: content },
+          {
+            upload: uploadThumbnail,
+            mediaTypeOverride: 'thumbnail-link',
+            options: { signal: AbortSignal.timeout(10_000) },
+            jid: chatId,
+          },
+        );
+        urlInfo.jpegThumbnail = imageMessage?.jpegThumbnail
+          ? Buffer.from(imageMessage.jpegThumbnail)
+          : undefined;
+        urlInfo.highQualityThumbnail = imageMessage;
+      }
+    }
+
+    const message = {
+      text: request.text,
+      linkPreview: urlInfo,
+    };
+    return this.sock.sendMessage(chatId, message as any, options);
   }
 
   protected async uploadMedia(
     file: RemoteFile | BinaryFile,
-    type,
-  ): Promise<Buffer | undefined> {
-    if (!file || (!('url' in file) && !('data' in file))) {
-      return undefined;
+    type: any,
+  ): Promise<any> {
+    if (!file) {
+      return;
     }
+    if (!('url' in file || 'data' in file)) {
+      return;
+    }
+    const message: any = await this.fileToMessage(file, type);
+    const options: MediaGenerationOptions = {
+      logger: this.engineLogger,
+      upload: this.sock.waUploadToServer,
+    };
+    const { imageMessage } = await esm.b.prepareWAMessageMedia(
+      message,
+      options,
+    );
+    return imageMessage;
+  }
+
+  get client(): NowebClient {
+    return new NowebClient(this.sock);
+  }
+
+  protected async fileToMessage(
+    file: RemoteFile | BinaryFile,
+    type: any,
+    caption = '',
+  ) {
+    let content: Buffer;
+    if ('url' in file) {
+      content = await this.fetch(file.url);
+    } else if ('data' in file) {
+      content = Buffer.from(file.data, 'base64');
+    } else {
+      throw new UnprocessableEntityException(
+        'Either "file.url" or "file.data" must be specified.',
+      );
+    }
+
+    return {
+      [type]: content,
+      mimetype: file.mimetype,
+      caption: caption,
+      fileName: file.filename,
+      ptt: type === 'audio',
+    };
+  }
+
+  private async fileToBuffer(file: FileType): Promise<Buffer> {
+    let content: Buffer;
     if ('data' in file) {
-      return Buffer.from(file.data, 'base64');
+      content = Buffer.from(file.data, 'base64');
+    } else if ('url' in file) {
+      content = await this.fetch(file.url);
+    } else {
+      throw new UnprocessableEntityException(
+        'Either file.url or file.data must be specified.',
+      );
     }
-    return await fetchBuffer(file.url);
+    return content;
   }
 
   @Activity()
@@ -1164,27 +1448,22 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
 
   @Activity()
   async sendList(request: SendListRequest): Promise<any> {
-    const chatId = toJID(this.ensureSuffix(request.chatId));
+    const jid = toJID(this.ensureSuffix(request.chatId));
+    if (!isLidUser(jid) && !isPnUser(jid)) {
+      throw new UnprocessableEntityException(
+        `List message can only be sent to a direct message chat.`,
+      );
+    }
+    const message = request.message;
+    const msg = {
+      text: message.description || '',
+      title: message.title,
+      buttonText: message.button,
+      footer: message.footer,
+      sections: message.sections,
+    } as any;
     const options = await this.getMessageOptions(request);
-    const sections = request.message.sections.map((section) => ({
-      title: section.title,
-      rows: section.rows.map((row) => ({
-        title: row.title,
-        description: row.description,
-        rowId: row.rowId,
-      })),
-    }));
-    const message = {
-      listMessage: {
-        title: request.message.title,
-        description: request.message.description,
-        buttonText: request.message.button,
-        footerText: request.message.footer,
-        listType: 1,
-        sections: sections,
-      },
-    };
-    return await this.sock.sendMessage(chatId, message as any, options);
+    return await this.sock.sendMessage(jid, msg, options);
   }
 
   @Activity()
@@ -1655,14 +1934,12 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     }
   }
 
-  @Activity()
   public async blockContact(request: ContactRequest) {
-    await this.sock.updateBlockStatus(request.contactId, 'block');
+    throw new NotImplementedByEngineError();
   }
 
-  @Activity()
   public async unblockContact(request: ContactRequest) {
-    await this.sock.updateBlockStatus(request.contactId, 'unblock');
+    throw new NotImplementedByEngineError();
   }
 
   /**
@@ -1707,6 +1984,22 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
    * Group methods
    */
   @Activity()
+  protected async setGroupPicture(
+    id: string,
+    file: BinaryFile | RemoteFile,
+  ): Promise<boolean> {
+    const content: Buffer = await this.fileToBuffer(file);
+    await this.sock.updateProfilePicture(id, content);
+    return true;
+  }
+
+  @Activity()
+  protected async deleteGroupPicture(id: string): Promise<boolean> {
+    await this.sock.removeProfilePicture(id);
+    return true;
+  }
+
+  @Activity()
   public createGroup(request: CreateGroupRequest) {
     const participants = request.participants.map(getId);
     return this.sock.groupCreate(request.name, participants);
@@ -1743,7 +2036,7 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     const groups = await this.getGroups({});
     const group = groups[id];
     if (!group) {
-      throw new NotFoundException(`Group with id '${id}' not found`);
+      throw new Error(`Group with id '${id}' not found`);
     }
     return group;
   }
@@ -1757,9 +2050,7 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   }
 
   public async deleteGroup(id) {
-    throw new NotImplementedByEngineError(
-      'Group deletion is not supported by NOWEB engine. Use leaveGroup() instead.',
-    );
+    throw new NotImplementedByEngineError();
   }
 
   public async getInfoAdminsOnly(id): Promise<SettingsSecurityChangeInfo> {
@@ -1782,6 +2073,17 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   public async setMessagesAdminsOnly(id, value) {
     const setting = value ? 'announcement' : 'not_announcement';
     return await this.sock.groupSettingUpdate(id, setting);
+  }
+
+  public async getMemberAddMode(id): Promise<SettingsMemberAddMode> {
+    const group = await this.getGroup(id);
+    return { membersCanAddNewMember: group.memberAddMode };
+  }
+
+  @Activity()
+  public async setMemberAddMode(id, value) {
+    const mode = value ? 'all_member_add' : 'admin_add';
+    return await this.sock.groupMemberAddMode(id, mode);
   }
 
   @Activity()
@@ -1981,18 +2283,18 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
 
   @Activity()
   public async sendImageStatus(status: ImageStatus) {
-    const buffer = await this.uploadMedia(status.file, 'image');
-    const message = {
-      image: buffer,
-      caption: status.caption,
-      mimetype: status.file?.mimetype,
-    };
+    const message: any = await this.fileToMessage(
+      status.file,
+      'image',
+      status.caption,
+    );
+    message.mimetype = message.mimetype || WAMimeType.IMAGE;
     const jids = await this.prepareJidsForStatus(status.contacts);
     if (!status.id) {
       this.upsertMeInJIDs(jids);
     }
     const messageId = this.prepareMessageIdForStatus(status);
-    const options: MiscMessageGenerationOptions = {
+    const options = {
       messageId: messageId,
     };
     return await this.sendStatusMessage(
@@ -2005,19 +2307,18 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
 
   @Activity()
   public async sendVoiceStatus(status: VoiceStatus) {
-    const buffer = await this.uploadMedia(status.file as any, 'audio');
-    const mimetype = status.file?.mimetype || 'audio/ogg; codecs=opus';
-    const message = {
-      audio: buffer,
-      mimetype: mimetype,
-      ptt: true,
-    };
+    const message: any = await this.fileToMessage(status.file, 'audio');
+    message.mimetype = message.mimetype || WAMimeType.VOICE;
+    if (status.convert) {
+      message['audio'] = await this.mediaConverter.voice(message['audio']);
+      message.mimetype = WAMimeType.VOICE;
+    }
     const jids = await this.prepareJidsForStatus(status.contacts);
     if (!status.id) {
       this.upsertMeInJIDs(jids);
     }
     const messageId = this.prepareMessageIdForStatus(status);
-    const options: MiscMessageGenerationOptions = {
+    const options = {
       backgroundColor: status.backgroundColor,
       messageId: messageId,
     };
@@ -2031,18 +2332,23 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
 
   @Activity()
   public async sendVideoStatus(status: VideoStatus) {
-    const buffer = await this.uploadMedia(status.file as any, 'video');
-    const message = {
-      video: buffer,
-      caption: status.caption,
-      mimetype: status.file?.mimetype,
-    };
+    const message: any = await this.fileToMessage(
+      status.file,
+      'video',
+      status.caption,
+    );
+    message.mimetype = message.mimetype || WAMimeType.VIDEO;
+    if (status.convert) {
+      message['video'] = await this.mediaConverter.video(message['video']);
+      message.mimetype = WAMimeType.VIDEO;
+    }
     const jids = await this.prepareJidsForStatus(status.contacts);
     if (!status.id) {
       this.upsertMeInJIDs(jids);
     }
     const messageId = this.prepareMessageIdForStatus(status);
-    const options: MiscMessageGenerationOptions = {
+    const options = {
+      statusJidList: jids,
       messageId: messageId,
     };
     return await this.sendStatusMessage(
@@ -2112,23 +2418,74 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   /**
    * Channels methods
    */
-  public searchChannelsByView(
+  @Activity()
+  public async searchChannelsByView(
     query: ChannelSearchByView,
   ): Promise<ChannelListResult> {
-    throw new AvailableInPlusVersion();
+    const response = await this.client.searchChannelsByView(query);
+    const channels: Channel[] = response.newsletters.map(
+      this.toChannel.bind(this),
+    );
+    return {
+      page: response.page,
+      channels: channels,
+    };
   }
 
-  public searchChannelsByText(
+  @Activity()
+  public async searchChannelsByText(
     query: ChannelSearchByText,
   ): Promise<ChannelListResult> {
-    throw new AvailableInPlusVersion();
+    const response = await this.client.searchChannelsByText(query);
+    const channels: Channel[] = response.newsletters.map(
+      this.toChannel.bind(this),
+    );
+    return {
+      page: response.page,
+      channels: channels,
+    };
   }
 
+  @Activity()
   public async previewChannelMessages(
     inviteCode: string,
     query: PreviewChannelMessages,
   ): Promise<ChannelMessage[]> {
-    throw new AvailableInPlusVersion();
+    const downloadMedia = query.downloadMedia;
+    const updates = await this.sock.newsletterFetchPreviewMessages(
+      'invite',
+      inviteCode,
+      query.limit,
+      null,
+    );
+    const promises = [];
+    for (const update of updates) {
+      promises.push(
+        this.NewsletterFetchedUpdateToChannelMessage(update, downloadMedia),
+      );
+    }
+    let result = await Promise.all(promises);
+    result = result.filter(Boolean);
+    return result;
+  }
+
+  private async NewsletterFetchedUpdateToChannelMessage(
+    update: NewsletterFetchedUpdate,
+    downloadMedia: boolean,
+  ): Promise<ChannelMessage> {
+    let reactions: any = Object.fromEntries(
+      update.reactions.map(({ code, count }) => [code, count]),
+    );
+    reactions = sortObjectByValues(reactions) || {};
+    const message = await this.processIncomingMessage(
+      update.message,
+      downloadMedia,
+    );
+    return {
+      message: message,
+      reactions: reactions,
+      viewCount: update.views,
+    };
   }
 
   protected toChannel(newsletter: NOWEBNewsletterMetadata): Channel {
@@ -2174,7 +2531,23 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       request.name,
       request.description,
     );
-    return this.toChannel(toNewsletterMetadata(newsletter));
+    const channel = this.toChannel(toNewsletterMetadata(newsletter));
+
+    if (request.picture) {
+      let file = request.picture;
+      let picture: any;
+      // @ts-ignore
+      if (file.url) {
+        file = file as RemoteFile;
+        picture = await esm.b.getStream({ url: file.url });
+        // @ts-ignore
+      } else if (file.data) {
+        file = file as BinaryFile;
+        picture = Buffer.from(file.data, 'base64');
+      }
+      await this.sock.newsletterUpdatePicture(channel.id, picture);
+    }
+    return channel;
   }
 
   public async channelsGetChannel(id: string) {
@@ -2280,14 +2653,25 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
 
     // Handle edited messages
     const messagesEdited$ = messagesUpsert$.pipe(
-      filter((message) => IsEditedMessage(message.message)),
+      filter(
+        (message) =>
+          IsEditedMessage(message.message) ||
+          IsSecretEncryptedMessageEdit(message.message),
+      ),
       mergeMap(async (message): Promise<WAMessageEditedBody> => {
         const waMessage = this.toWAMessage(message);
-        // Extract the body from editedMessage using extractBody function
-        const content = normalizeMessageContent(message.message);
-        const body = extractBody(content.protocolMessage.editedMessage) || '';
-        // Extract the original message ID from protocolMessage.key
-        const editedMessageId = content.protocolMessage.key?.id;
+        let body = '';
+        let editedMessageId: string | undefined;
+        if (IsEditedMessage(message.message)) {
+          const content = normalizeMessageContent(message.message);
+          body = extractBody(content.protocolMessage.editedMessage) || '';
+          editedMessageId = content.protocolMessage.key?.id;
+        } else if (IsSecretEncryptedMessageEdit(message.message)) {
+          const sem = message.message.secretEncryptedMessage;
+          editedMessageId = sem.targetMessageKey?.id;
+          body =
+            (await this.tryDecryptNOWEBSecretMessageEdit(message, sem)) || '';
+        }
         return {
           ...waMessage,
           body: body,
@@ -2607,6 +2991,8 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       return;
     // Ignore edit, we have a dedicated event for that
     if (IsEditedMessage(message.message)) return;
+    // Ignore secret-encrypted message edits (mobile app format), dedicated handler routes them
+    if (IsSecretEncryptedMessageEdit(message.message)) return;
 
     // Ignore history sync notifications
     if (IsHistorySyncNotification(message.message)) return;
@@ -2635,6 +3021,141 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       if (message?.message?.senderKeyDistributionMessage) return;
     }
     return true;
+  }
+
+  protected async tryDecryptNOWEBSecretMessageEdit(
+    editMessage: proto.IWebMessageInfo,
+    sem: proto.Message.ISecretEncryptedMessage,
+  ): Promise<string> {
+    const targetKey = sem.targetMessageKey;
+    const origMsgId = targetKey?.id;
+    if (!origMsgId) {
+      return '';
+    }
+    const editKey = editMessage.key as WAMessageKey | undefined;
+    const jidsToTry = [
+      targetKey.remoteJid,
+      editKey?.remoteJid,
+      editKey?.remoteJidAlt,
+    ].filter(Boolean);
+    let stored: proto.IWebMessageInfo | undefined;
+    for (const jid of jidsToTry) {
+      stored = await this.store?.loadMessage(jid, origMsgId);
+      if (stored) {
+        break;
+      }
+    }
+    if (!stored) {
+      this.logger.debug(
+        { origMsgId: origMsgId },
+        'NOWEB message edit decrypt: original message not found in store',
+      );
+      return '';
+    }
+    const secretBytes =
+      normalizeMessageContent(stored.message)?.messageContextInfo
+        ?.messageSecret ?? stored.message?.messageContextInfo?.messageSecret;
+    if (!secretBytes || secretBytes.length !== 32) {
+      this.logger.debug(
+        { origMsgId: origMsgId },
+        'NOWEB message edit decrypt: missing messageSecret on original',
+      );
+      return '';
+    }
+    const origSecret = Buffer.from(secretBytes);
+    const encPayload = sem.encPayload ? Buffer.from(sem.encPayload) : null;
+    const encIv = sem.encIv ? Buffer.from(sem.encIv) : null;
+    if (!encPayload || !encIv) {
+      return '';
+    }
+
+    // The editor ("modification sender").
+    let modificationSenderJids: Array<string | null | undefined>;
+    if (editKey?.fromMe) {
+      // Try both user lid and c.us
+      modificationSenderJids = [this.sock?.user?.lid, this.sock?.user?.id];
+    } else {
+      const editJids = editKey ? jidsFromKey(editKey) : null;
+      modificationSenderJids = [
+        editKey?.participant || editKey?.remoteJid,
+        editJids?.lid,
+        editJids?.pn,
+      ];
+    }
+    modificationSenderJids = lodash
+      .chain(modificationSenderJids)
+      .filter(Boolean)
+      .map(jidToNonAD)
+      .uniq()
+      .value();
+    if (modificationSenderJids.length === 0) {
+      modificationSenderJids.push('');
+    }
+
+    const remoteNonAD = targetKey.remoteJid
+      ? jidToNonAD(targetKey.remoteJid)
+      : '';
+    const participantNonAD = targetKey.participant
+      ? jidToNonAD(targetKey.participant)
+      : '';
+
+    // Map dedupes by key and keeps the first-insertion order
+    const attempts = new Map<
+      string,
+      { origSenderJid: string; modificationSenderJid: string }
+    >();
+    for (const modificationSenderJid of modificationSenderJids) {
+      const primaryOrigSenderJid = getOrigSenderJidForMsgSecret(
+        { Chat: editKey?.remoteJid, Sender: modificationSenderJid },
+        {
+          fromMe: targetKey.fromMe,
+          remoteJID: targetKey.remoteJid,
+          participant: targetKey.participant,
+        },
+      );
+      const origSenderJids = [
+        primaryOrigSenderJid,
+        remoteNonAD,
+        participantNonAD,
+      ].filter(Boolean);
+      for (const origSenderJid of origSenderJids) {
+        // Avoid duplicates in attemps
+        const attemptKey = `${origSenderJid}|${modificationSenderJid}`;
+        attempts.set(attemptKey, {
+          origSenderJid: origSenderJid,
+          modificationSenderJid: modificationSenderJid,
+        });
+      }
+    }
+
+    let lastErr: unknown;
+    for (const attempt of attempts.values()) {
+      try {
+        const decoded = decryptSecretEncryptedMessageEditProto({
+          encPayload: encPayload,
+          encIv: encIv,
+          origMsgId: origMsgId,
+          origSenderJid: attempt.origSenderJid,
+          modificationSenderJid: attempt.modificationSenderJid,
+          origMsgSecret: origSecret,
+        });
+        const text = extractBody(decoded) || '';
+        if (text) {
+          return text;
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    this.logger.debug(
+      {
+        err: lastErr,
+        origMsgId: origMsgId,
+        attempts: Array.from(attempts.keys()),
+      },
+      'NOWEB message edit decrypt: AES-GCM or protobuf decode failed',
+    );
+    return '';
   }
 
   protected async processIncomingMessage(
@@ -2934,7 +3455,11 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   }
 
   protected async downloadMedia(message): Promise<WAMedia | null> {
-    const processor = new NOWEBEngineMediaProcessor(this, this.loggerBuilder);
+    let processor: IMediaEngineProcessor<any> = new NOWEBEngineMediaProcessor(
+      this,
+      this.loggerBuilder,
+    );
+    processor = new LottieMediaProcessorWrapper(processor, this.logger);
     return this.mediaManager.processMedia(processor, message, this.name);
   }
 

@@ -4,12 +4,12 @@
   "compilerOptions": {
     "plugins": ["@nestjs/swagger"],
     "assets": [
-      "dashboard/**",
-      "core/engines/webjs/*",
-      "plus/engines/webjs/*",
-      "apps/chatwoot/i18n/locales/*.yaml",
-      "apps/chatwoot/i18n/locales/*.yml"
+      { "include": "dashboard/**", "watchAssets": false },
+      { "include": "core/engines/webjs/*", "watchAssets": true },
+      { "include": "plus/engines/webjs/*", "watchAssets": true },
+      { "include": "apps/chatwoot/i18n/locales/*.yaml", "watchAssets": true },
+      { "include": "apps/chatwoot/i18n/locales/*.yml", "watchAssets": true }
     ],
-    "watchAssets": true
+    "watchAssets": false
   }
 }

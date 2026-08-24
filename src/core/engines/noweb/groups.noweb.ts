@@ -17,7 +17,7 @@ import {
   GroupV2ParticipantsEvent,
   GroupV2UpdateEvent,
 } from '@waha/structures/groups.events.dto';
-import { toCusFormat } from '@waha/core/utils/jids';
+import { isPnUser, toCusFormat } from '@waha/core/utils/jids';
 import esm from '@waha/vendor/esm';
 
 export function ToGroupInfo(group: Partial<GroupMetadata>): GroupInfo {
@@ -68,13 +68,46 @@ interface GroupParticipantUpdate {
   action: ParticipantAction;
 }
 
-function getParticipantId(
+export function getParticipantId(
   participant: string | NOWEBGroupParticipant,
 ): string | undefined {
   if (typeof participant === 'string') {
     return participant;
   }
   return participant?.id;
+}
+
+function getParticipantPn(
+  participant: string | NOWEBGroupParticipant,
+): string | null {
+  if (typeof participant === 'string') {
+    return isPnUser(participant) ? participant : null;
+  }
+  return participant?.phoneNumber || null;
+}
+
+function getParticipantIds(
+  participant: string | NOWEBGroupParticipant,
+): string[] {
+  if (typeof participant === 'string') {
+    return [participant];
+  }
+  return [participant?.id, participant?.phoneNumber].filter(Boolean);
+}
+
+/**
+ * Check if me.id or me.lid in participant list
+ */
+export function participantsIncludeMe(
+  me: Contact,
+  participants: Array<string | NOWEBGroupParticipant>,
+): boolean {
+  const myIds = [me.id, me.lid].filter(Boolean);
+  return participants.some((participant) =>
+    getParticipantIds(participant).some((id) =>
+      myIds.some((meId) => esm.b.areJidsSameUser(id, meId)),
+    ),
+  );
 }
 
 export function ToGroupV2Participants(
@@ -105,6 +138,7 @@ export function ToGroupV2Participants(
     const id = getParticipantId(item);
     return {
       id: toCusFormat(id),
+      pn: toCusFormat(getParticipantPn(item)),
       role: role,
     };
   });
@@ -140,12 +174,7 @@ export function ToGroupV2LeaveEvent(
   if (!me) {
     return null;
   }
-  const meId = esm.b.jidNormalizedUser(me.id);
-  const includesMe = update.participants.some((participant) => {
-    const id = getParticipantId(participant);
-    return id === meId;
-  });
-  if (!includesMe) {
+  if (!participantsIncludeMe(me, update.participants)) {
     return null;
   }
 

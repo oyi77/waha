@@ -41,11 +41,11 @@ up-noweb-libsignal:
 	yarn up libsignal@github:devlikeapro/libsignal-node#fork-master
 
 up-webjs:
-	yarn up whatsapp-web.js@github:devlikeapro/whatsapp-web.js#fork-main-2026-02-18
+	yarn up whatsapp-web.js@github:devlikeapro/whatsapp-web.js#fork-main-2026-06-26
 
 up-wpp:
-	yarn up @wppconnect-team/wppconnect
-	yarn up @wppconnect/wa-js
+	SHARP_IGNORE_GLOBAL_LIBVIPS=1 yarn up @wppconnect-team/wppconnect@github:wppconnect-team/wppconnect#master
+	SHARP_IGNORE_GLOBAL_LIBVIPS=1 yarn up @wppconnect/wa-js@github:wppconnect-team/wa-js#main
 
 up-rust-bridge:
 	yarn up -R whatsapp-rust-bridge
@@ -60,6 +60,17 @@ gows:
 	cd ../gows && \
 	(export PATH=${HOME}/go/bin:${PATH} || echo failed) && \
 	make all
+
+ORIGIN ?= waha-plus
+CORE_REMOTE ?= waha
+
+release:
+	node scripts/release.js
+
+release-push: release
+	git push $(ORIGIN) core plus
+	git push --force-with-lease $(ORIGIN) dev
+	git push $(CORE_REMOTE) core
 
 up-dashboard:
 	node scripts/up-dashboard.js

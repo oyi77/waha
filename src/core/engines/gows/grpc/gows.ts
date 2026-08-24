@@ -1132,6 +1132,99 @@ export namespace messages {
             return PairCodeResponse.deserialize(bytes);
         }
     }
+    export class PasskeyResponseRequest extends pb_1.Message {
+        #one_of_decls: number[][] = [];
+        constructor(data?: any[] | {
+            session?: Session;
+            response_json?: string;
+        }) {
+            super();
+            pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [], this.#one_of_decls);
+            if (!Array.isArray(data) && typeof data == "object") {
+                if ("session" in data && data.session != undefined) {
+                    this.session = data.session;
+                }
+                if ("response_json" in data && data.response_json != undefined) {
+                    this.response_json = data.response_json;
+                }
+            }
+        }
+        get session() {
+            return pb_1.Message.getWrapperField(this, Session, 1) as Session;
+        }
+        set session(value: Session) {
+            pb_1.Message.setWrapperField(this, 1, value);
+        }
+        get has_session() {
+            return pb_1.Message.getField(this, 1) != null;
+        }
+        get response_json() {
+            return pb_1.Message.getFieldWithDefault(this, 2, "") as string;
+        }
+        set response_json(value: string) {
+            pb_1.Message.setField(this, 2, value);
+        }
+        static fromObject(data: {
+            session?: ReturnType<typeof Session.prototype.toObject>;
+            response_json?: string;
+        }): PasskeyResponseRequest {
+            const message = new PasskeyResponseRequest({});
+            if (data.session != null) {
+                message.session = Session.fromObject(data.session);
+            }
+            if (data.response_json != null) {
+                message.response_json = data.response_json;
+            }
+            return message;
+        }
+        toObject() {
+            const data: {
+                session?: ReturnType<typeof Session.prototype.toObject>;
+                response_json?: string;
+            } = {};
+            if (this.session != null) {
+                data.session = this.session.toObject();
+            }
+            if (this.response_json != null) {
+                data.response_json = this.response_json;
+            }
+            return data;
+        }
+        serialize(): Uint8Array;
+        serialize(w: pb_1.BinaryWriter): void;
+        serialize(w?: pb_1.BinaryWriter): Uint8Array | void {
+            const writer = w || new pb_1.BinaryWriter();
+            if (this.has_session)
+                writer.writeMessage(1, this.session, () => this.session.serialize(writer));
+            if (this.response_json.length)
+                writer.writeString(2, this.response_json);
+            if (!w)
+                return writer.getResultBuffer();
+        }
+        static deserialize(bytes: Uint8Array | pb_1.BinaryReader): PasskeyResponseRequest {
+            const reader = bytes instanceof pb_1.BinaryReader ? bytes : new pb_1.BinaryReader(bytes), message = new PasskeyResponseRequest();
+            while (reader.nextField()) {
+                if (reader.isEndGroup())
+                    break;
+                switch (reader.getFieldNumber()) {
+                    case 1:
+                        reader.readMessage(message.session, () => message.session = Session.deserialize(reader));
+                        break;
+                    case 2:
+                        message.response_json = reader.readString();
+                        break;
+                    default: reader.skipField();
+                }
+            }
+            return message;
+        }
+        serializeBinary(): Uint8Array {
+            return this.serialize();
+        }
+        static deserializeBinary(bytes: Uint8Array): PasskeyResponseRequest {
+            return PasskeyResponseRequest.deserialize(bytes);
+        }
+    }
     export class Empty extends pb_1.Message {
         #one_of_decls: number[][] = [];
         constructor(data?: any[] | {}) {
@@ -1330,7 +1423,7 @@ export namespace messages {
         }
     }
     export class SessionStorageConfig extends pb_1.Message {
-        #one_of_decls: number[][] = [[1], [2], [3], [4]];
+        #one_of_decls: number[][] = [[1], [2], [3], [4], [5], [6]];
         constructor(data?: any[] | ({} & (({
             messages?: boolean;
         }) | ({
@@ -1339,6 +1432,10 @@ export namespace messages {
             chats?: boolean;
         }) | ({
             labels?: boolean;
+        }) | ({
+            contacts?: boolean;
+        }) | ({
+            message_secrets?: boolean;
         })))) {
             super();
             pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [], this.#one_of_decls);
@@ -1354,6 +1451,12 @@ export namespace messages {
                 }
                 if ("labels" in data && data.labels != undefined) {
                     this.labels = data.labels;
+                }
+                if ("contacts" in data && data.contacts != undefined) {
+                    this.contacts = data.contacts;
+                }
+                if ("message_secrets" in data && data.message_secrets != undefined) {
+                    this.message_secrets = data.message_secrets;
                 }
             }
         }
@@ -1393,6 +1496,24 @@ export namespace messages {
         get has_labels() {
             return pb_1.Message.getField(this, 4) != null;
         }
+        get contacts() {
+            return pb_1.Message.getFieldWithDefault(this, 5, false) as boolean;
+        }
+        set contacts(value: boolean) {
+            pb_1.Message.setOneofField(this, 5, this.#one_of_decls[4], value);
+        }
+        get has_contacts() {
+            return pb_1.Message.getField(this, 5) != null;
+        }
+        get message_secrets() {
+            return pb_1.Message.getFieldWithDefault(this, 6, false) as boolean;
+        }
+        set message_secrets(value: boolean) {
+            pb_1.Message.setOneofField(this, 6, this.#one_of_decls[5], value);
+        }
+        get has_message_secrets() {
+            return pb_1.Message.getField(this, 6) != null;
+        }
         get _messages() {
             const cases: {
                 [index: number]: "none" | "messages";
@@ -1429,11 +1550,31 @@ export namespace messages {
             };
             return cases[pb_1.Message.computeOneofCase(this, [4])];
         }
+        get _contacts() {
+            const cases: {
+                [index: number]: "none" | "contacts";
+            } = {
+                0: "none",
+                5: "contacts"
+            };
+            return cases[pb_1.Message.computeOneofCase(this, [5])];
+        }
+        get _message_secrets() {
+            const cases: {
+                [index: number]: "none" | "message_secrets";
+            } = {
+                0: "none",
+                6: "message_secrets"
+            };
+            return cases[pb_1.Message.computeOneofCase(this, [6])];
+        }
         static fromObject(data: {
             messages?: boolean;
             groups?: boolean;
             chats?: boolean;
             labels?: boolean;
+            contacts?: boolean;
+            message_secrets?: boolean;
         }): SessionStorageConfig {
             const message = new SessionStorageConfig({});
             if (data.messages != null) {
@@ -1448,6 +1589,12 @@ export namespace messages {
             if (data.labels != null) {
                 message.labels = data.labels;
             }
+            if (data.contacts != null) {
+                message.contacts = data.contacts;
+            }
+            if (data.message_secrets != null) {
+                message.message_secrets = data.message_secrets;
+            }
             return message;
         }
         toObject() {
@@ -1456,6 +1603,8 @@ export namespace messages {
                 groups?: boolean;
                 chats?: boolean;
                 labels?: boolean;
+                contacts?: boolean;
+                message_secrets?: boolean;
             } = {};
             if (this.messages != null) {
                 data.messages = this.messages;
@@ -1468,6 +1617,12 @@ export namespace messages {
             }
             if (this.labels != null) {
                 data.labels = this.labels;
+            }
+            if (this.contacts != null) {
+                data.contacts = this.contacts;
+            }
+            if (this.message_secrets != null) {
+                data.message_secrets = this.message_secrets;
             }
             return data;
         }
@@ -1483,6 +1638,10 @@ export namespace messages {
                 writer.writeBool(3, this.chats);
             if (this.has_labels)
                 writer.writeBool(4, this.labels);
+            if (this.has_contacts)
+                writer.writeBool(5, this.contacts);
+            if (this.has_message_secrets)
+                writer.writeBool(6, this.message_secrets);
             if (!w)
                 return writer.getResultBuffer();
         }
@@ -1503,6 +1662,12 @@ export namespace messages {
                         break;
                     case 4:
                         message.labels = reader.readBool();
+                        break;
+                    case 5:
+                        message.contacts = reader.readBool();
+                        break;
+                    case 6:
+                        message.message_secrets = reader.readBool();
                         break;
                     default: reader.skipField();
                 }
@@ -3000,12 +3165,20 @@ export namespace messages {
         #one_of_decls: number[][] = [];
         constructor(data?: any[] | {
             duration?: number;
+            gifPlayback?: boolean;
+            externalShareFullVideoDurationInSeconds?: number;
         }) {
             super();
             pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [], this.#one_of_decls);
             if (!Array.isArray(data) && typeof data == "object") {
                 if ("duration" in data && data.duration != undefined) {
                     this.duration = data.duration;
+                }
+                if ("gifPlayback" in data && data.gifPlayback != undefined) {
+                    this.gifPlayback = data.gifPlayback;
+                }
+                if ("externalShareFullVideoDurationInSeconds" in data && data.externalShareFullVideoDurationInSeconds != undefined) {
+                    this.externalShareFullVideoDurationInSeconds = data.externalShareFullVideoDurationInSeconds;
                 }
             }
         }
@@ -3015,21 +3188,49 @@ export namespace messages {
         set duration(value: number) {
             pb_1.Message.setField(this, 1, value);
         }
+        get gifPlayback() {
+            return pb_1.Message.getFieldWithDefault(this, 2, false) as boolean;
+        }
+        set gifPlayback(value: boolean) {
+            pb_1.Message.setField(this, 2, value);
+        }
+        get externalShareFullVideoDurationInSeconds() {
+            return pb_1.Message.getFieldWithDefault(this, 3, 0) as number;
+        }
+        set externalShareFullVideoDurationInSeconds(value: number) {
+            pb_1.Message.setField(this, 3, value);
+        }
         static fromObject(data: {
             duration?: number;
+            gifPlayback?: boolean;
+            externalShareFullVideoDurationInSeconds?: number;
         }): VideoInfo {
             const message = new VideoInfo({});
             if (data.duration != null) {
                 message.duration = data.duration;
+            }
+            if (data.gifPlayback != null) {
+                message.gifPlayback = data.gifPlayback;
+            }
+            if (data.externalShareFullVideoDurationInSeconds != null) {
+                message.externalShareFullVideoDurationInSeconds = data.externalShareFullVideoDurationInSeconds;
             }
             return message;
         }
         toObject() {
             const data: {
                 duration?: number;
+                gifPlayback?: boolean;
+                externalShareFullVideoDurationInSeconds?: number;
             } = {};
             if (this.duration != null) {
                 data.duration = this.duration;
+            }
+            if (this.gifPlayback != null) {
+                data.gifPlayback = this.gifPlayback;
+            }
+            if (this.externalShareFullVideoDurationInSeconds != null) {
+                data.externalShareFullVideoDurationInSeconds = this.externalShareFullVideoDurationInSeconds;
             }
             return data;
         }
@@ -3039,6 +3240,10 @@ export namespace messages {
             const writer = w || new pb_1.BinaryWriter();
             if (this.duration != 0)
                 writer.writeFloat(1, this.duration);
+            if (this.gifPlayback != false)
+                writer.writeBool(2, this.gifPlayback);
+            if (this.externalShareFullVideoDurationInSeconds != 0)
+                writer.writeUint32(3, this.externalShareFullVideoDurationInSeconds);
             if (!w)
                 return writer.getResultBuffer();
         }
@@ -3050,6 +3255,12 @@ export namespace messages {
                 switch (reader.getFieldNumber()) {
                     case 1:
                         message.duration = reader.readFloat();
+                        break;
+                    case 2:
+                        message.gifPlayback = reader.readBool();
+                        break;
+                    case 3:
+                        message.externalShareFullVideoDurationInSeconds = reader.readUint32();
                         break;
                     default: reader.skipField();
                 }
@@ -6257,6 +6468,7 @@ export namespace messages {
             phone?: string;
             jid?: string;
             registered?: boolean;
+            pn?: string;
         }) {
             super();
             pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [], this.#one_of_decls);
@@ -6269,6 +6481,9 @@ export namespace messages {
                 }
                 if ("registered" in data && data.registered != undefined) {
                     this.registered = data.registered;
+                }
+                if ("pn" in data && data.pn != undefined) {
+                    this.pn = data.pn;
                 }
             }
         }
@@ -6290,10 +6505,17 @@ export namespace messages {
         set registered(value: boolean) {
             pb_1.Message.setField(this, 3, value);
         }
+        get pn() {
+            return pb_1.Message.getFieldWithDefault(this, 4, "") as string;
+        }
+        set pn(value: string) {
+            pb_1.Message.setField(this, 4, value);
+        }
         static fromObject(data: {
             phone?: string;
             jid?: string;
             registered?: boolean;
+            pn?: string;
         }): PhoneInfo {
             const message = new PhoneInfo({});
             if (data.phone != null) {
@@ -6305,6 +6527,9 @@ export namespace messages {
             if (data.registered != null) {
                 message.registered = data.registered;
             }
+            if (data.pn != null) {
+                message.pn = data.pn;
+            }
             return message;
         }
         toObject() {
@@ -6312,6 +6537,7 @@ export namespace messages {
                 phone?: string;
                 jid?: string;
                 registered?: boolean;
+                pn?: string;
             } = {};
             if (this.phone != null) {
                 data.phone = this.phone;
@@ -6321,6 +6547,9 @@ export namespace messages {
             }
             if (this.registered != null) {
                 data.registered = this.registered;
+            }
+            if (this.pn != null) {
+                data.pn = this.pn;
             }
             return data;
         }
@@ -6334,6 +6563,8 @@ export namespace messages {
                 writer.writeString(2, this.jid);
             if (this.registered != false)
                 writer.writeBool(3, this.registered);
+            if (this.pn.length)
+                writer.writeString(4, this.pn);
             if (!w)
                 return writer.getResultBuffer();
         }
@@ -6351,6 +6582,9 @@ export namespace messages {
                         break;
                     case 3:
                         message.registered = reader.readBool();
+                        break;
+                    case 4:
+                        message.pn = reader.readString();
                         break;
                     default: reader.skipField();
                 }
@@ -11007,6 +11241,24 @@ export namespace messages {
                 responseSerialize: (message: PairCodeResponse) => Buffer.from(message.serialize()),
                 responseDeserialize: (bytes: Buffer) => PairCodeResponse.deserialize(new Uint8Array(bytes))
             },
+            SubmitPasskeyResponse: {
+                path: "/messages.MessageService/SubmitPasskeyResponse",
+                requestStream: false,
+                responseStream: false,
+                requestSerialize: (message: PasskeyResponseRequest) => Buffer.from(message.serialize()),
+                requestDeserialize: (bytes: Buffer) => PasskeyResponseRequest.deserialize(new Uint8Array(bytes)),
+                responseSerialize: (message: Empty) => Buffer.from(message.serialize()),
+                responseDeserialize: (bytes: Buffer) => Empty.deserialize(new Uint8Array(bytes))
+            },
+            ConfirmPasskey: {
+                path: "/messages.MessageService/ConfirmPasskey",
+                requestStream: false,
+                responseStream: false,
+                requestSerialize: (message: Session) => Buffer.from(message.serialize()),
+                requestDeserialize: (bytes: Buffer) => Session.deserialize(new Uint8Array(bytes)),
+                responseSerialize: (message: Empty) => Buffer.from(message.serialize()),
+                responseDeserialize: (bytes: Buffer) => Empty.deserialize(new Uint8Array(bytes))
+            },
             Logout: {
                 path: "/messages.MessageService/Logout",
                 requestStream: false,
@@ -11205,6 +11457,15 @@ export namespace messages {
                 responseSerialize: (message: Empty) => Buffer.from(message.serialize()),
                 responseDeserialize: (bytes: Buffer) => Empty.deserialize(new Uint8Array(bytes))
             },
+            SetGroupMemberAddMode: {
+                path: "/messages.MessageService/SetGroupMemberAddMode",
+                requestStream: false,
+                responseStream: false,
+                requestSerialize: (message: JidBoolRequest) => Buffer.from(message.serialize()),
+                requestDeserialize: (bytes: Buffer) => JidBoolRequest.deserialize(new Uint8Array(bytes)),
+                responseSerialize: (message: Empty) => Buffer.from(message.serialize()),
+                responseDeserialize: (bytes: Buffer) => Empty.deserialize(new Uint8Array(bytes))
+            },
             UpdateGroupParticipants: {
                 path: "/messages.MessageService/UpdateGroupParticipants",
                 requestStream: false,
@@ -11267,6 +11528,24 @@ export namespace messages {
                 requestDeserialize: (bytes: Buffer) => ChatUnreadRequest.deserialize(new Uint8Array(bytes)),
                 responseSerialize: (message: Empty) => Buffer.from(message.serialize()),
                 responseDeserialize: (bytes: Buffer) => Empty.deserialize(new Uint8Array(bytes))
+            },
+            FetchReachoutTimelock: {
+                path: "/messages.MessageService/FetchReachoutTimelock",
+                requestStream: false,
+                responseStream: false,
+                requestSerialize: (message: Session) => Buffer.from(message.serialize()),
+                requestDeserialize: (bytes: Buffer) => Session.deserialize(new Uint8Array(bytes)),
+                responseSerialize: (message: Json) => Buffer.from(message.serialize()),
+                responseDeserialize: (bytes: Buffer) => Json.deserialize(new Uint8Array(bytes))
+            },
+            FetchMessageCapping: {
+                path: "/messages.MessageService/FetchMessageCapping",
+                requestStream: false,
+                responseStream: false,
+                requestSerialize: (message: Session) => Buffer.from(message.serialize()),
+                requestDeserialize: (bytes: Buffer) => Session.deserialize(new Uint8Array(bytes)),
+                responseSerialize: (message: Json) => Buffer.from(message.serialize()),
+                responseDeserialize: (bytes: Buffer) => Json.deserialize(new Uint8Array(bytes))
             },
             GenerateNewMessageID: {
                 path: "/messages.MessageService/GenerateNewMessageID",
@@ -11553,6 +11832,8 @@ export namespace messages {
         abstract StopSession(call: grpc_1.ServerUnaryCall<Session, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract GetSessionState(call: grpc_1.ServerUnaryCall<Session, SessionStateResponse>, callback: grpc_1.sendUnaryData<SessionStateResponse>): void;
         abstract RequestCode(call: grpc_1.ServerUnaryCall<PairCodeRequest, PairCodeResponse>, callback: grpc_1.sendUnaryData<PairCodeResponse>): void;
+        abstract SubmitPasskeyResponse(call: grpc_1.ServerUnaryCall<PasskeyResponseRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
+        abstract ConfirmPasskey(call: grpc_1.ServerUnaryCall<Session, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract Logout(call: grpc_1.ServerUnaryCall<Session, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract SetProfileName(call: grpc_1.ServerUnaryCall<ProfileNameRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract SetProfileStatus(call: grpc_1.ServerUnaryCall<ProfileStatusRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
@@ -11575,6 +11856,7 @@ export namespace messages {
         abstract SetGroupPicture(call: grpc_1.ServerUnaryCall<SetPictureRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract SetGroupLocked(call: grpc_1.ServerUnaryCall<JidBoolRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract SetGroupAnnounce(call: grpc_1.ServerUnaryCall<JidBoolRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
+        abstract SetGroupMemberAddMode(call: grpc_1.ServerUnaryCall<JidBoolRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract UpdateGroupParticipants(call: grpc_1.ServerUnaryCall<UpdateParticipantsRequest, JsonList>, callback: grpc_1.sendUnaryData<JsonList>): void;
         abstract GetProfilePicture(call: grpc_1.ServerUnaryCall<ProfilePictureRequest, ProfilePictureResponse>, callback: grpc_1.sendUnaryData<ProfilePictureResponse>): void;
         abstract SendPresence(call: grpc_1.ServerUnaryCall<PresenceRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
@@ -11582,6 +11864,8 @@ export namespace messages {
         abstract SubscribePresence(call: grpc_1.ServerUnaryCall<SubscribePresenceRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
         abstract CheckPhones(call: grpc_1.ServerUnaryCall<CheckPhonesRequest, CheckPhonesResponse>, callback: grpc_1.sendUnaryData<CheckPhonesResponse>): void;
         abstract MarkChatUnread(call: grpc_1.ServerUnaryCall<ChatUnreadRequest, Empty>, callback: grpc_1.sendUnaryData<Empty>): void;
+        abstract FetchReachoutTimelock(call: grpc_1.ServerUnaryCall<Session, Json>, callback: grpc_1.sendUnaryData<Json>): void;
+        abstract FetchMessageCapping(call: grpc_1.ServerUnaryCall<Session, Json>, callback: grpc_1.sendUnaryData<Json>): void;
         abstract GenerateNewMessageID(call: grpc_1.ServerUnaryCall<Session, NewMessageIDResponse>, callback: grpc_1.sendUnaryData<NewMessageIDResponse>): void;
         abstract SendMessage(call: grpc_1.ServerUnaryCall<MessageRequest, MessageResponse>, callback: grpc_1.sendUnaryData<MessageResponse>): void;
         abstract SendReaction(call: grpc_1.ServerUnaryCall<MessageReaction, MessageResponse>, callback: grpc_1.sendUnaryData<MessageResponse>): void;
@@ -11629,6 +11913,12 @@ export namespace messages {
         };
         RequestCode: GrpcUnaryServiceInterface<PairCodeRequest, PairCodeResponse> = (message: PairCodeRequest, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<PairCodeResponse>, options?: grpc_1.CallOptions | grpc_1.requestCallback<PairCodeResponse>, callback?: grpc_1.requestCallback<PairCodeResponse>): grpc_1.ClientUnaryCall => {
             return super.RequestCode(message, metadata, options, callback);
+        };
+        SubmitPasskeyResponse: GrpcUnaryServiceInterface<PasskeyResponseRequest, Empty> = (message: PasskeyResponseRequest, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Empty>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Empty>, callback?: grpc_1.requestCallback<Empty>): grpc_1.ClientUnaryCall => {
+            return super.SubmitPasskeyResponse(message, metadata, options, callback);
+        };
+        ConfirmPasskey: GrpcUnaryServiceInterface<Session, Empty> = (message: Session, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Empty>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Empty>, callback?: grpc_1.requestCallback<Empty>): grpc_1.ClientUnaryCall => {
+            return super.ConfirmPasskey(message, metadata, options, callback);
         };
         Logout: GrpcUnaryServiceInterface<Session, Empty> = (message: Session, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Empty>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Empty>, callback?: grpc_1.requestCallback<Empty>): grpc_1.ClientUnaryCall => {
             return super.Logout(message, metadata, options, callback);
@@ -11696,6 +11986,9 @@ export namespace messages {
         SetGroupAnnounce: GrpcUnaryServiceInterface<JidBoolRequest, Empty> = (message: JidBoolRequest, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Empty>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Empty>, callback?: grpc_1.requestCallback<Empty>): grpc_1.ClientUnaryCall => {
             return super.SetGroupAnnounce(message, metadata, options, callback);
         };
+        SetGroupMemberAddMode: GrpcUnaryServiceInterface<JidBoolRequest, Empty> = (message: JidBoolRequest, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Empty>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Empty>, callback?: grpc_1.requestCallback<Empty>): grpc_1.ClientUnaryCall => {
+            return super.SetGroupMemberAddMode(message, metadata, options, callback);
+        };
         UpdateGroupParticipants: GrpcUnaryServiceInterface<UpdateParticipantsRequest, JsonList> = (message: UpdateParticipantsRequest, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<JsonList>, options?: grpc_1.CallOptions | grpc_1.requestCallback<JsonList>, callback?: grpc_1.requestCallback<JsonList>): grpc_1.ClientUnaryCall => {
             return super.UpdateGroupParticipants(message, metadata, options, callback);
         };
@@ -11716,6 +12009,12 @@ export namespace messages {
         };
         MarkChatUnread: GrpcUnaryServiceInterface<ChatUnreadRequest, Empty> = (message: ChatUnreadRequest, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Empty>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Empty>, callback?: grpc_1.requestCallback<Empty>): grpc_1.ClientUnaryCall => {
             return super.MarkChatUnread(message, metadata, options, callback);
+        };
+        FetchReachoutTimelock: GrpcUnaryServiceInterface<Session, Json> = (message: Session, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Json>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Json>, callback?: grpc_1.requestCallback<Json>): grpc_1.ClientUnaryCall => {
+            return super.FetchReachoutTimelock(message, metadata, options, callback);
+        };
+        FetchMessageCapping: GrpcUnaryServiceInterface<Session, Json> = (message: Session, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<Json>, options?: grpc_1.CallOptions | grpc_1.requestCallback<Json>, callback?: grpc_1.requestCallback<Json>): grpc_1.ClientUnaryCall => {
+            return super.FetchMessageCapping(message, metadata, options, callback);
         };
         GenerateNewMessageID: GrpcUnaryServiceInterface<Session, NewMessageIDResponse> = (message: Session, metadata: grpc_1.Metadata | grpc_1.CallOptions | grpc_1.requestCallback<NewMessageIDResponse>, options?: grpc_1.CallOptions | grpc_1.requestCallback<NewMessageIDResponse>, callback?: grpc_1.requestCallback<NewMessageIDResponse>): grpc_1.ClientUnaryCall => {
             return super.GenerateNewMessageID(message, metadata, options, callback);
