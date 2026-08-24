@@ -43,6 +43,7 @@ import { WebhookConfig } from '../structures/webhooks.config.dto';
 import { populateSessionInfo, SessionManager } from './abc/manager.abc';
 import { SessionParams, WhatsappSession } from './abc/session.abc';
 import { EngineConfigService } from './config/EngineConfigService';
+import { NowebEngineConfigService } from './config/NowebEngineConfigService';
 import { WhatsappSessionNoWebCore } from './engines/noweb/session.noweb.core';
 import { WhatsappSessionWPPCore } from './engines/wpp/session.wpp.core';
 import { WhatsappSessionWebJSCore } from './engines/webjs/session.webjs.core';
@@ -89,6 +90,7 @@ export class SessionManagerCore extends SessionManager implements OnModuleInit {
     private webjsEngineConfigService: WebJSEngineConfigService,
     private wppEngineConfigService: WPPEngineConfigService,
     gowsConfigService: GowsEngineConfigService,
+    private nowebEngineConfigService: NowebEngineConfigService,
     log: PinoLogger,
     private mediaStorageFactory: MediaStorageFactory,
     @Inject(AppsService)
@@ -220,6 +222,9 @@ export class SessionManagerCore extends SessionManager implements OnModuleInit {
       sessionConfig.engineConfig = this.wppEngineConfigService.getConfig();
     } else if (this.EngineClass === WhatsappSessionGoWSCore) {
       sessionConfig.engineConfig = this.gowsConfigService.getConfig();
+    } else if (this.EngineClass === WhatsappSessionNoWebCore) {
+      sessionConfig.engineConfig =
+        await this.nowebEngineConfigService.getConfig();
     }
     await this.sessionAuthRepository.init(name);
     // @ts-ignore
