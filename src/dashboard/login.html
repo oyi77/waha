@@ -211,11 +211,11 @@
       <span class="brand-badge">Plus</span>
     </div>
 
-    <p class="login-title">Sign in to your dashboard</p>
+    <p class="login-title" id="loginTitle">Sign in to your dashboard</p>
 
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
-        <label for="username">Username</label>
+        <label for="username" id="lblUser">Username</label>
         <input
           id="username"
           type="text"
@@ -226,7 +226,7 @@
       </div>
 
       <div class="form-group">
-        <label for="password">Password</label>
+        <label for="password" id="lblPass">Password</label>
         <input
           id="password"
           type="password"
@@ -246,6 +246,20 @@
   </div>
 
   <script>
+    // Auto-detect language from the browser; ID gets a translated login.
+    (function () {
+      var lang = (navigator.language || 'en').toLowerCase();
+      if (lang.indexOf('id') !== 0) return;
+      var el = document.getElementById('loginTitle');
+      if (el) el.textContent = 'Masuk ke dasbor Anda';
+      var u = document.getElementById('lblUser');
+      if (u) u.textContent = 'Nama Pengguna';
+      var p = document.getElementById('lblPass');
+      if (p) p.textContent = 'Kata Sandi';
+      var b = document.getElementById('loginBtn');
+      if (b) b.textContent = 'Masuk';
+    })();
+
     async function handleLogin(e) {
       e.preventDefault();
       const btn = document.getElementById('loginBtn');
@@ -254,7 +268,9 @@
       const password = document.getElementById('password').value;
 
       if (!username || !password) {
-        showError('Please enter username and password.');
+        showError((navigator.language || 'en').toLowerCase().indexOf('id') === 0
+          ? 'Silakan masukkan nama pengguna dan kata sandi.'
+          : 'Please enter username and password.');
         return;
       }
 
@@ -276,10 +292,10 @@
           window.location.href = redirect;
         } else {
           const data = await resp.json().catch(() => ({}));
-          showError(data.error || 'Invalid username or password.');
+          showError(data.error || ((navigator.language || 'en').toLowerCase().indexOf('id') === 0 ? 'Nama pengguna atau kata sandi salah.' : 'Invalid username or password.'));
         }
       } catch {
-        showError('Connection error. Is WAHA running?');
+        showError((navigator.language || 'en').toLowerCase().indexOf('id') === 0 ? 'Koneksi gagal. Apakah WAHA berjalan?' : 'Connection error. Is WAHA running?');
       } finally {
         btn.disabled = false;
         btn.textContent = 'Sign In';
