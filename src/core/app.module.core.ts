@@ -285,8 +285,10 @@ export class AppModuleCore {
     if (!creds) return () => null;
     return () => creds;
   }
-
   configure(consumer: MiddlewareConsumer) {
+    // Security headers on every response, before auth middlewares
+    consumer.apply(SecurityHeadersFunction()).forRoutes('*');
+
     // Because we use ServeStaticModule, we need to inject a middleware
     // ServeStaticModule does not support @UseGuards
     const exclude = this.config.getExcludedPaths();
@@ -309,4 +311,23 @@ export class AppModuleCore {
       .apply(DashboardCookieAuthFunction(resolver))
       .forRoutes('dashboard');
   }
+}
+
+// Security headers — apply to every response so they hold regardless of
+// the proxy path (Cloudflare tunnel bypasses nginx entirely).
+export function SecurityHeadersFunction(): (req: any, res: any, next: any) => void {
+  return function securityHeaders(req: any, res: any, next: () => void) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (req.headers['x-forwarded-proto'] === 'https') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' wss: https:; frame-ancestors 'self'",
+    );
+    next();
+  };
 }
