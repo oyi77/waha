@@ -4,8 +4,8 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
 
 import { VERSION } from '../version';
 
@@ -28,10 +28,23 @@ export function serializeError(err: unknown) {
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: any | Error, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
+    // Response already committed (e.g. exception thrown after the controller
+    // responded) — attempting to write would throw ERR_HTTP_HEADERS_SENT and
+    // mask the original error. Log it instead.
+    if (response.headersSent) {
+      this.logger.error(
+        `Exception after response sent: ${request.method} ${request.url}`,
+        exception?.stack || String(exception),
+      );
+      return;
+    }
 
     /**
      * If file not found - we get weird 500 error
@@ -48,7 +61,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
           details: 'File not found or no longer available',
         },
       });
-      response.send();
       return;
     }
 
@@ -59,11 +71,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       response.status(exception.getStatus()).json(exception.getResponse());
       return;
     }
-
     /**
      * If it's not HttpException - pass it as 500 error
      * And send JSON response with error details
      */
+    this.logger.error(
+      `Unhandled exception: ${request.method} ${request.url}`,
+      exception?.stack || String(exception),
+    );
     const httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
     response.status(httpStatus).json({
       statusCode: httpStatus,

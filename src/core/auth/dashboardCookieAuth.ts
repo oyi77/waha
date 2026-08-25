@@ -104,7 +104,7 @@ export function DashboardCookieAuthFunction(
       ? usernameOrResolver
       : () => [usernameOrResolver, password!];
 
-  return function dashboardCookieAuth(
+  return async function dashboardCookieAuth(
     req: Request,
     res: Response,
     next: NextFunction,
@@ -119,54 +119,49 @@ export function DashboardCookieAuthFunction(
       return next();
     }
 
-    const result = resolve();
-    const handle = (entry: CredentialEntry | null) => {
-      if (!entry) {
-        return next();
-      }
-
-      // Determine the valid token and whether Basic Auth is available.
-      const isRawCreds = Array.isArray(entry);
-      const validToken = isRawCreds
-        ? makeAuthToken(entry[0], entry[1])
-        : entry.authToken;
-
-      // Check waha-auth cookie (browser login flow).
-      const cookies = parseCookies(req.headers.cookie || '');
-      if (safeEqual(cookies[WAHA_AUTH_COOKIE] || '', validToken)) {
-        return next();
-      }
-
-      // Check HTTP Basic Auth — only available when raw credentials are present.
-      if (isRawCreds) {
-        const [username, pwd] = entry;
-        const basicCreds = parseBasicAuth(req.headers.authorization || '');
-        if (basicCreds) {
-          const [u, p] = basicCreds;
-          if (safeEqual(u, username) && safeEqual(p, pwd)) {
-            return next();
-          }
-          // Wrong credentials supplied explicitly — always 401.
-          res.set('WWW-Authenticate', 'Basic realm="waha"');
-          return res.status(401).json({ message: 'Unauthorized' });
-        }
-      }
-
-      // No credentials at all: redirect browsers, return 401 for API clients.
-      const accept: string = req.headers.accept || '';
-      if (accept.includes('text/html')) {
-        return res.redirect('/dashboard/login.html');
-      }
-      res.set('WWW-Authenticate', 'Basic realm="waha"');
-      return res.status(401).json({ message: 'Unauthorized' });
-    };
-
-    if (result instanceof Promise) {
-      result.then(handle).catch(() => {
-        res.status(500).json({ message: 'Internal server error' });
-      });
-    } else {
-      handle(result);
+    let entry: CredentialEntry | null;
+    try {
+      entry = await resolve();
+    } catch {
+      return res.status(500).json({ message: 'Internal server error' });
     }
+
+    if (!entry) {
+      return next();
+    }
+
+    // Determine the valid token and whether Basic Auth is available.
+    const validToken = Array.isArray(entry)
+      ? makeAuthToken(entry[0], entry[1])
+      : entry.authToken;
+
+    // Check waha-auth cookie (browser login flow).
+    const cookies = parseCookies(req.headers.cookie || '');
+    if (safeEqual(cookies[WAHA_AUTH_COOKIE] || '', validToken)) {
+      return next();
+    }
+
+    // Check HTTP Basic Auth — only available when raw credentials are present.
+    if (Array.isArray(entry)) {
+      const [username, pwd] = entry;
+      const basicCreds = parseBasicAuth(req.headers.authorization || '');
+      if (basicCreds) {
+        const [u, p] = basicCreds;
+        if (safeEqual(u, username) && safeEqual(p, pwd)) {
+          return next();
+        }
+        // Wrong credentials supplied explicitly — always 401.
+        res.set('WWW-Authenticate', 'Basic realm="waha"');
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+    }
+
+    // No credentials at all: redirect browsers, return 401 for API clients.
+    const accept: string = req.headers.accept || '';
+    if (accept.includes('text/html')) {
+      return res.redirect('/dashboard/login.html');
+    }
+    res.set('WWW-Authenticate', 'Basic realm="waha"');
+    return res.status(401).json({ message: 'Unauthorized' });
   };
 }

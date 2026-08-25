@@ -307,7 +307,7 @@ export class AppModuleCore {
         '/api/dashboard/logout',
         '/api/dashboard/config',
         '/api/dashboard/settings',
-        '/api/dashboard/settings/(.*)',
+        '/api/dashboard/settings/*path',
       )
       .forRoutes('api', 'health', 'mcp');
 

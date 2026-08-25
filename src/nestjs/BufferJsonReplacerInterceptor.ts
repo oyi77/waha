@@ -17,7 +17,12 @@ export class BufferJsonReplacerInterceptor implements NestInterceptor {
         if (typeof data !== 'object' || data === null) {
           return data;
         }
-        // Buffer
+        // Express Response returned from @Res() handlers — never serialize it
+        // (circular structure). Pass through untouched.
+        if (typeof data?.status === 'function' && typeof data?.json === 'function') {
+          return data;
+        }
+
         if (Buffer.isBuffer(data) || data?.data || data?.url) {
           return data;
         }

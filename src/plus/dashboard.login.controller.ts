@@ -71,17 +71,15 @@ export class DashboardLoginController {
         .catch(() => null);
       if (stored) {
         if (!safeEqual(submittedUsername, stored.username)) {
-          return res
-            .status(401)
-            .json({ error: 'Invalid username or password' });
+          res.status(401).json({ error: 'Invalid username or password' });
+          return;
         }
         const passwordValid = await this.settingsService
           .verifyPassword(submittedPassword)
           .catch(() => false);
         if (!passwordValid) {
-          return res
-            .status(401)
-            .json({ error: 'Invalid username or password' });
+          res.status(401).json({ error: 'Invalid username or password' });
+          return;
         }
         // Recompute and refresh the stored HMAC token so it stays valid across
         // server restarts (ephemeral _dashboardSecret in development).
@@ -94,25 +92,29 @@ export class DashboardLoginController {
             ),
           );
         setCookieAuth(res, token, req);
-        return res.json({ success: true });
+        res.json({ success: true });
+        return;
       }
     }
 
     // Fall back to env-configured credentials.
     const envCreds = this.dashboardConfig.credentials;
     if (!envCreds) {
-      return res.json({ success: true, message: 'No auth configured' });
+      res.json({ success: true, message: 'No auth configured' });
+      return;
     }
     const [username, password] = envCreds;
     if (
       !safeEqual(submittedUsername, username) ||
       !safeEqual(submittedPassword, password)
     ) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+      res.status(401).json({ error: 'Invalid username or password' });
+      return;
     }
     const token = makeAuthToken(username, password);
     setCookieAuth(res, token, req);
-    return res.json({ success: true });
+    res.json({ success: true });
+    return;
   }
 
   @Post('logout')
@@ -127,7 +129,8 @@ export class DashboardLoginController {
       sameSite: 'strict',
       secure: isSecureRequest(req),
     });
-    return res.json({ success: true });
+    res.json({ success: true });
+    return;
   }
 
   @Get('config')
@@ -157,16 +160,19 @@ export class DashboardLoginController {
       }
 
       if (validToken && !safeEqual(cookieToken, validToken)) {
-        return res.status(401).json({ error: 'Not authenticated' });
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
       }
 
       const plainKey = Auth.keyplain?.value ?? '';
       this.logger.log(`[getConfig] Auth.keyplain: ${JSON.stringify(Auth.keyplain)}`);
       this.logger.log(`[getConfig] plainKey: "${plainKey}"`);
-      return res.json({ apiKey: plainKey });
+      res.json({ apiKey: plainKey });
+      return;
     } catch (error) {
       this.logger.error('Error in getConfig: %O', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Internal server error' });
+      return;
     }
   }
 }
