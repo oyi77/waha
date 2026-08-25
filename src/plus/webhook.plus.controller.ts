@@ -23,13 +23,22 @@ import { Action } from '../core/auth/casl.types';
 import { WAHAValidationPipe } from '../nestjs/pipes/WAHAValidationPipe';
 import { IsOptional, IsString, IsUrl } from 'class-validator';
 import { WAHAEvents } from '../structures/enums.dto';
+import * as crypto from 'crypto';
+
+import { ConfigService } from '@nestjs/config';
+import { GlobalWebhookConfigConfig } from '../core/config/GlobalWebhookConfig';
+import { webhookHmacHeaders } from '../core/integrations/webhooks/WebhookSender';
 
 class WebhookTestRequest {
   @ApiProperty({ description: 'Webhook URL to test' })
   @IsUrl({ require_tld: false })
   url: string;
 
-  @ApiProperty({ description: 'Optional secret for HMAC validation', required: false })
+  @ApiProperty({
+    description:
+      'Optional HMAC key override; defaults to WHATSAPP_HOOK_HMAC_KEY when set',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   secret?: string;
@@ -54,7 +63,10 @@ class WebhookInfo {
 @ApiTags('🔔 Webhooks')
 @UseGuards(PoliciesGuard)
 export class WebhookPlusController {
-  constructor(private manager: SessionManager) {}
+  constructor(
+    private manager: SessionManager,
+    private configService: ConfigService,
+  ) {}
 
   @Get('/webhooks')
   @CheckPolicies(CanServer(Action.Read))
@@ -85,7 +97,9 @@ export class WebhookPlusController {
   @UsePipes(new WAHAValidationPipe())
   @ApiOperation({
     summary: 'Send a test event to a webhook URL',
-    description: 'Fires a test payload to verify your webhook endpoint is reachable.',
+    description:
+      'Fires a test payload signed like real deliveries (WHATSAPP_HOOK_HMAC_KEY or the ' +
+      'provided secret) so HMAC-verifying receivers accept it.',
   })
   async testWebhook(
     @Body() request: WebhookTestRequest,
@@ -97,13 +111,23 @@ export class WebhookPlusController {
       timestamp: Date.now(),
       payload: { message: 'WAHA Plus webhook test — it works!' },
     };
+    const body = JSON.stringify(payload);
+    // Sign exactly like real deliveries so HMAC-enforcing endpoints answer 200.
+    const globalKey =
+      new GlobalWebhookConfigConfig(this.configService).config?.hmac?.key;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Webhook-Request-Id': crypto.randomUUID().replace(/-/g, ''),
+      'X-Webhook-Timestamp': Date.now().toString(),
+      ...webhookHmacHeaders(body, request.secret || globalKey),
+    };
 
     const start = Date.now();
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers,
+        body,
         signal: AbortSignal.timeout(10000),
       });
       return {

@@ -11,6 +11,7 @@ import { Request } from 'express';
 import { safeEqual } from '@waha/core/auth/dashboardCookieAuth';
 import { Auth } from '@waha/core/auth/config';
 import { SessionManager } from '@waha/core/abc/manager.abc';
+import { WebhookSender } from '@waha/core/integrations/webhooks/WebhookSender';
 
 /**
  * Prometheus exposition endpoint — GET /metrics.
@@ -27,7 +28,8 @@ export class MetricsController {
   @Get()
   @ApiOperation({
     summary: 'Prometheus metrics',
-    description: 'Session status gauges in Prometheus text exposition format.',
+    description:
+      'Session status gauges and webhook delivery counters in Prometheus text exposition format.',
   })
   async metrics(@Req() request: Request): Promise<string> {
     const expected = Auth.keyplain?.value;
@@ -60,6 +62,7 @@ export class MetricsController {
         `waha_session_status{session="${label}",status="${session.status}"} 1`,
       );
     }
+    lines.push(...WebhookSender.metricsLines());
     return lines.join('\n') + '\n';
   }
 

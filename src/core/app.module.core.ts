@@ -24,6 +24,7 @@ import {
   DashboardCookieAuthFunction,
 } from '@waha/core/auth/dashboardCookieAuth';
 import { DashboardLoginController } from '@waha/core/auth/DashboardLoginController';
+import { PUBLIC_API_KEY_EXCLUDE_PATHS } from '@waha/core/auth/public-api-paths';
 import { WebSocketAuth } from '@waha/core/auth/WebSocketAuth';
 import { GowsEngineConfigService } from '@waha/core/config/GowsEngineConfigService';
 import { NowebEngineConfigService } from '@waha/core/config/NowebEngineConfigService';
@@ -304,14 +305,7 @@ export class AppModuleCore {
       .apply(ApiKeyAuthMiddleware)
       .exclude(
         ...exclude,
-        // Dashboard login/logout/config are public — no API key required
-        '/api/dashboard/login',
-        '/api/dashboard/logout',
-        '/api/dashboard/config',
-        '/api/dashboard/settings',
-        '/api/dashboard/settings/*path',
-        // Prometheus scrape endpoint — MetricsController enforces the key itself
-        '/metrics',
+        ...PUBLIC_API_KEY_EXCLUDE_PATHS,
       )
       .forRoutes('api', 'health', 'mcp');
 

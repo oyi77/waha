@@ -40,6 +40,24 @@ export function exponentialDelay(delayFactor: number) {
   };
 }
 
+/** Shared HMAC header builder — used by real deliveries and the test-webhook probe. */
+export function webhookHmacHeaders(
+  body: string,
+  key?: string | null,
+): Record<string, string> {
+  if (!key) {
+    return {};
+  }
+  const hmac = crypto
+    .createHmac(DEFAULT_HMAC_ALGORITHM, key)
+    .update(body)
+    .digest('hex');
+  return {
+    'X-Webhook-Hmac': hmac,
+    'X-Webhook-Hmac-Algorithm': DEFAULT_HMAC_ALGORITHM,
+  };
+}
+
 export class WebhookSender {
   protected static AGENTS = {
     http: new HttpAgent({}),
@@ -51,6 +69,44 @@ export class WebhookSender {
   protected readonly config: WebhookConfig;
 
   protected axios: AxiosInstance;
+
+  /** Delivery counters by event name — exposed via MetricsController (/metrics). */
+  private static deliveries = new Map<string, { ok: number; failed: number }>();
+
+  static recordDelivery(event: string, ok: boolean) {
+    const key = event || 'unknown';
+    const counters =
+      WebhookSender.deliveries.get(key) ?? { ok: 0, failed: 0 };
+    if (ok) {
+      counters.ok++;
+    } else {
+      counters.failed++;
+    }
+    WebhookSender.deliveries.set(key, counters);
+  }
+
+  /** Prometheus text-exposition lines for webhook deliveries. */
+  static metricsLines(): string[] {
+    const escape = (value: string) =>
+      value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    const lines = [
+      '# HELP waha_webhook_delivery_total Webhook deliveries by event and status',
+      '# TYPE waha_webhook_delivery_total counter',
+    ];
+    for (const [event, counters] of WebhookSender.deliveries) {
+      if (counters.ok) {
+        lines.push(
+          `waha_webhook_delivery_total{event="${escape(event)}",status="ok"} ${counters.ok}`,
+        );
+      }
+      if (counters.failed) {
+        lines.push(
+          `waha_webhook_delivery_total{event="${escape(event)}",status="failed"} ${counters.failed}`,
+        );
+      }
+    }
+    return lines;
+  }
 
   constructor(
     loggerBuilder: LoggerBuilder,
@@ -81,6 +137,7 @@ export class WebhookSender {
     this.axios
       .post(this.url, body, { headers: headers })
       .then((response) => {
+        WebhookSender.recordDelivery(String(json.event ?? 'unknown'), true);
         this.logger.info(
           ctx,
           `POST request was sent with status code: ${response.status}`,
@@ -94,6 +151,7 @@ export class WebhookSender {
         );
       })
       .catch((error) => {
+        WebhookSender.recordDelivery(String(json.event ?? 'unknown'), false);
         this.logger.error(
           {
             ...ctx,
@@ -146,15 +204,7 @@ export class WebhookSender {
   }
 
   protected getHMACHeaders(body: string) {
-    // HMAC
-    const hmac = this.calculateHmac(body, DEFAULT_HMAC_ALGORITHM);
-    if (!hmac) {
-      return {};
-    }
-    return {
-      'X-Webhook-Hmac': hmac,
-      'X-Webhook-Hmac-Algorithm': DEFAULT_HMAC_ALGORITHM,
-    };
+    return webhookHmacHeaders(body, this.config.hmac?.key);
   }
 
   protected getWebhookHeader(json: any) {
@@ -167,16 +217,6 @@ export class WebhookSender {
     };
   }
 
-  private calculateHmac(body, algorithm) {
-    if (!this.config.hmac || !this.config.hmac.key) {
-      return undefined;
-    }
-
-    return crypto
-      .createHmac(algorithm, this.config.hmac.key)
-      .update(body)
-      .digest('hex');
-  }
 
   private buildRetryDelay(
     policy: RetryPolicy | null,

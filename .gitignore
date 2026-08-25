@@ -63,3 +63,6 @@ lerna-debug.log*
 !.vscode/extensions.json
 # Added by code-review-graph
 .code-review-graph/
+
+# OMP harness state
+.omc/
