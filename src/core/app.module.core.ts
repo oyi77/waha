@@ -71,6 +71,7 @@ import { StatusController } from '../api/status.controller';
 import { VersionController } from '../api/version.controller';
 import { WhatsappConfigService } from '../config.service';
 import { SessionManager } from './abc/manager.abc';
+import { MetricsController } from './metrics.controller';
 import { WAHAHealthCheckService } from './abc/WAHAHealthCheckService';
 import { ApiKeyAuthFactory } from './auth/ApiKeyAuthFactory';
 import { LoginRateLimitMiddleware } from './auth/login-rate-limit.middleware';
@@ -199,6 +200,7 @@ export const CONTROLLERS = [
   ServerController,
   ServerDebugController,
   VersionController,
+  MetricsController,
   MediaController,
   ...AppsModuleExports.controllers,
 ];
@@ -308,6 +310,8 @@ export class AppModuleCore {
         '/api/dashboard/config',
         '/api/dashboard/settings',
         '/api/dashboard/settings/*path',
+        // Prometheus scrape endpoint — MetricsController enforces the key itself
+        '/metrics',
       )
       .forRoutes('api', 'health', 'mcp');
 

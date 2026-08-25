@@ -36,6 +36,7 @@ import {
 import { ISessionAuthRepository } from '../storage/ISessionAuthRepository';
 import { ISessionConfigRepository } from '../storage/ISessionConfigRepository';
 import { WhatsappSession } from './session.abc';
+import { rateLimitSessionSends } from '../ratelimit/SendRateGate';
 import { IApiKeyRepository } from '@waha/core/storage/IApiKeyRepository';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -159,7 +160,10 @@ export abstract class SessionManager
   }
 
   async getWorkingSession(sessionName: string): Promise<WhatsappSession> {
-    return this.waitUntilStatus(sessionName, [WAHASessionStatus.WORKING]);
+    const session = await this.waitUntilStatus(sessionName, [
+      WAHASessionStatus.WORKING,
+    ]);
+    return rateLimitSessionSends(sessionName, session);
   }
 
   /**
