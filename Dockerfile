@@ -58,9 +58,9 @@ RUN \
     wget https://github.com/${WAHA_DASHBOARD_GITHUB_REPO}/archive/${WAHA_DASHBOARD_SHA}.zip \
     && unzip ${WAHA_DASHBOARD_SHA}.zip -d /tmp/dashboard \
     && mkdir -p /dashboard \
-    && mv /tmp/dashboard/waha-dashboard-${WAHA_DASHBOARD_SHA}/* /dashboard/ \
+    && mv /tmp/dashboard/waha-dashboard-*/* /dashboard/ \
     && rm -rf ${WAHA_DASHBOARD_SHA}.zip \
-    && rm -rf /tmp/dashboard/waha-dashboard-${WAHA_DASHBOARD_SHA}
+    && rm -rf /tmp/dashboard/waha-dashboard-*
 
 # Build dashboard from source
 WORKDIR /dashboard
