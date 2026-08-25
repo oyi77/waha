@@ -27,7 +27,7 @@ import * as crypto from 'crypto';
 
 import { ConfigService } from '@nestjs/config';
 import { GlobalWebhookConfigConfig } from '../core/config/GlobalWebhookConfig';
-import { webhookHmacHeaders } from '../core/integrations/webhooks/WebhookSender';
+import { webhookHmacHeaders, WebhookSender } from '../core/integrations/webhooks/WebhookSender';
 
 class WebhookTestRequest {
   @ApiProperty({ description: 'Webhook URL to test' })
@@ -129,12 +129,16 @@ export class WebhookPlusController {
         body,
         signal: AbortSignal.timeout(10000),
       });
+      // Probe outcome is counted separately (event="test.webhook") so pings are
+      // visible in /metrics without polluting real delivery counters.
+      WebhookSender.recordDelivery('test.webhook', response.ok);
       return {
         success: response.ok,
         status: response.status,
         responseTime: Date.now() - start,
       };
     } catch (err: any) {
+      WebhookSender.recordDelivery('test.webhook', false);
       return {
         success: false,
         error: err?.message ?? String(err),
