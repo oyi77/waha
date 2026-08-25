@@ -94,6 +94,16 @@ export class GlobalWebhookConfigConfig {
     return this._config;
   }
 
+  /**
+   * Raw global HMAC key — deliberately NOT gated on WHATSAPP_HOOK_URL being
+   * set, so consumers (e.g. the signed test-webhook probe) can sign even when
+   * no global webhook is configured.
+   */
+  get hmacKey(): string | null {
+    const key = this.configService.get(Env.WHATSAPP_HOOK_HMAC_KEY, '');
+    return key || null;
+  }
+
   validateConfig(): string | null {
     const config = this.parseWebhookConfig();
     if (!config) {

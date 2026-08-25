@@ -113,8 +113,7 @@ export class WebhookPlusController {
     };
     const body = JSON.stringify(payload);
     // Sign exactly like real deliveries so HMAC-enforcing endpoints answer 200.
-    const globalKey =
-      new GlobalWebhookConfigConfig(this.configService).config?.hmac?.key;
+    const globalKey = new GlobalWebhookConfigConfig(this.configService).hmacKey;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Webhook-Request-Id': crypto.randomUUID().replace(/-/g, ''),
