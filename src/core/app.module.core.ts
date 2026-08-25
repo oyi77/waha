@@ -73,6 +73,7 @@ import { WhatsappConfigService } from '../config.service';
 import { SessionManager } from './abc/manager.abc';
 import { WAHAHealthCheckService } from './abc/WAHAHealthCheckService';
 import { ApiKeyAuthFactory } from './auth/ApiKeyAuthFactory';
+import { LoginRateLimitMiddleware } from './auth/login-rate-limit.middleware';
 import { DashboardConfigServiceCore } from './config/DashboardConfigServiceCore';
 import { EngineConfigService } from './config/EngineConfigService';
 import { SwaggerConfigServiceCore } from './config/SwaggerConfigServiceCore';
@@ -286,6 +287,11 @@ export class AppModuleCore {
     return () => creds;
   }
   configure(consumer: MiddlewareConsumer) {
+    // Brute-force protection on the public dashboard login endpoint
+    consumer
+      .apply(LoginRateLimitMiddleware)
+      .forRoutes('api/dashboard/login');
+
     // Security headers on every response, before auth middlewares
     consumer.apply(SecurityHeadersFunction()).forRoutes('*');
 
