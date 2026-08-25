@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 
+import { Request, Response } from 'express';
 import { VERSION } from '../version';
 
 /**
